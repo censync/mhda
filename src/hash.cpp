@@ -32,18 +32,18 @@ inline std::uint32_t rotr32(std::uint32_t x, unsigned n) noexcept {
 
 void sha1_compress(std::uint32_t state[5], const std::uint8_t block[64]) {
     std::uint32_t w[80];
-    for (int i = 0; i < 16; ++i) {
+    for (std::size_t i = 0; i < 16; ++i) {
         w[i] = (std::uint32_t(block[4 * i]) << 24) |
                (std::uint32_t(block[4 * i + 1]) << 16) |
                (std::uint32_t(block[4 * i + 2]) << 8)  |
                 std::uint32_t(block[4 * i + 3]);
     }
-    for (int i = 16; i < 80; ++i) {
+    for (std::size_t i = 16; i < 80; ++i) {
         w[i] = rotl32(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
     }
 
     std::uint32_t a = state[0], b = state[1], c = state[2], d = state[3], e = state[4];
-    for (int i = 0; i < 80; ++i) {
+    for (std::size_t i = 0; i < 80; ++i) {
         std::uint32_t f, k;
         if (i < 20)      { f = (b & c) | (~b & d);              k = 0x5A827999u; }
         else if (i < 40) { f = b ^ c ^ d;                       k = 0x6ED9EBA1u; }
@@ -70,14 +70,14 @@ std::array<std::uint8_t, 20> sha1(const void* data, std::size_t n) {
     tail[rem] = 0x80;
     std::size_t pad_len = (rem < 56) ? 64 : 128;
     std::uint64_t bit_len = std::uint64_t(n) * 8;
-    for (int i = 0; i < 8; ++i) {
+    for (std::size_t i = 0; i < 8; ++i) {
         tail[pad_len - 1 - i] = std::uint8_t(bit_len >> (8 * i));
     }
     sha1_compress(state, tail);
     if (pad_len == 128) sha1_compress(state, tail + 64);
 
     std::array<std::uint8_t, 20> out{};
-    for (int i = 0; i < 5; ++i) {
+    for (std::size_t i = 0; i < 5; ++i) {
         out[4 * i]     = std::uint8_t(state[i] >> 24);
         out[4 * i + 1] = std::uint8_t(state[i] >> 16);
         out[4 * i + 2] = std::uint8_t(state[i] >> 8);
@@ -101,13 +101,13 @@ const std::uint32_t k256[64] = {
 
 void sha256_compress(std::uint32_t state[8], const std::uint8_t block[64]) {
     std::uint32_t w[64];
-    for (int i = 0; i < 16; ++i) {
+    for (std::size_t i = 0; i < 16; ++i) {
         w[i] = (std::uint32_t(block[4 * i]) << 24) |
                (std::uint32_t(block[4 * i + 1]) << 16) |
                (std::uint32_t(block[4 * i + 2]) << 8)  |
                 std::uint32_t(block[4 * i + 3]);
     }
-    for (int i = 16; i < 64; ++i) {
+    for (std::size_t i = 16; i < 64; ++i) {
         std::uint32_t s0 = rotr32(w[i - 15], 7) ^ rotr32(w[i - 15], 18) ^ (w[i - 15] >> 3);
         std::uint32_t s1 = rotr32(w[i - 2], 17) ^ rotr32(w[i - 2], 19)  ^ (w[i - 2] >> 10);
         w[i] = w[i - 16] + s0 + w[i - 7] + s1;
@@ -115,7 +115,7 @@ void sha256_compress(std::uint32_t state[8], const std::uint8_t block[64]) {
 
     std::uint32_t a = state[0], b = state[1], c = state[2], d = state[3];
     std::uint32_t e = state[4], f = state[5], g = state[6], h = state[7];
-    for (int i = 0; i < 64; ++i) {
+    for (std::size_t i = 0; i < 64; ++i) {
         std::uint32_t S1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
         std::uint32_t ch = (e & f) ^ (~e & g);
         std::uint32_t t1 = h + S1 + ch + k256[i] + w[i];
@@ -144,14 +144,14 @@ std::array<std::uint8_t, 32> sha256(const void* data, std::size_t n) {
     tail[rem] = 0x80;
     std::size_t pad_len = (rem < 56) ? 64 : 128;
     std::uint64_t bit_len = std::uint64_t(n) * 8;
-    for (int i = 0; i < 8; ++i) {
+    for (std::size_t i = 0; i < 8; ++i) {
         tail[pad_len - 1 - i] = std::uint8_t(bit_len >> (8 * i));
     }
     sha256_compress(state, tail);
     if (pad_len == 128) sha256_compress(state, tail + 64);
 
     std::array<std::uint8_t, 32> out{};
-    for (int i = 0; i < 8; ++i) {
+    for (std::size_t i = 0; i < 8; ++i) {
         out[4 * i]     = std::uint8_t(state[i] >> 24);
         out[4 * i + 1] = std::uint8_t(state[i] >> 16);
         out[4 * i + 2] = std::uint8_t(state[i] >> 8);

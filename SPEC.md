@@ -7,7 +7,15 @@ EVM, Bitcoin, Cosmos, Solana, XRP, Stellar, NEAR, Aptos, Sui, Cardano,
 Algorand and TON.
 
 This document is the normative specification. The Go reference implementation
-in this repository conforms to it.
+at <https://github.com/censync/go-mhda> conforms to it; the C++17 port in
+this repository is a faithful, byte-for-byte compatible mirror — a URN
+produced by either implementation parses and round-trips through the other.
+
+> Throughout this document, identifiers shown in CamelCase (`Address`,
+> `Chain`, `DerivationPath`, `Hash256` …) refer to the canonical Go surface.
+> Their C++ counterparts use snake_case (`mhda::address`, `mhda::chain`,
+> `mhda::derivation_path`, `address::hash256`); the README maps the names
+> exhaustively. Behaviour is identical unless explicitly noted.
 
 ## 1. URN Structure
 

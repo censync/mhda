@@ -62,6 +62,8 @@ if(MHDA_BUILD_EXAMPLES)
 endif()
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 install(TARGETS mhda
     EXPORT  mhdaTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -72,5 +74,21 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(EXPORT mhdaTargets
     FILE        mhdaTargets.cmake
     NAMESPACE   mhda::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mhda
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/mhdaConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/mhdaConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mhda
+)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/mhdaConfigVersion.cmake"
+    VERSION       ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/mhdaConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/mhdaConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mhda
 )
