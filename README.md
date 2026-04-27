@@ -24,7 +24,7 @@ Stellar, NEAR, Aptos, Sui, Cardano, Algorand, TON.
 
 ## Status
 
-- Version: **0.1.0**
+- Version: **1.0.0**
 - Standard: **C++17**, no external runtime dependencies
 - Tests: **71** unit + fuzz-equivalent stress cases (≈11 000 randomised
   iterations), passing under `-fsanitize=address,undefined,leak`
