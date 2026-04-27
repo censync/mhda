@@ -69,7 +69,7 @@ target_link_libraries(my_app PRIVATE mhda::mhda)
 include(FetchContent)
 FetchContent_Declare(mhda
     GIT_REPOSITORY https://github.com/censync/mhda.git
-    GIT_TAG        v0.1.0
+    GIT_TAG        v1.0.0
 )
 FetchContent_MakeAvailable(mhda)
 target_link_libraries(my_app PRIVATE mhda::mhda)
