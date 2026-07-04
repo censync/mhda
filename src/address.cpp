@@ -22,6 +22,24 @@ void append_uint32(std::string& out, std::uint32_t v) {
     for (int i = n - 1; i >= 0; --i) out.push_back(tmp[i]);
 }
 
+// validate_free_form_value guards the case-preserving free-form components
+// (ap/as/wt/wi) against characters that would corrupt the serialised NSS:
+// the ':' component separator would inject foreign components on re-parse,
+// '?' / '#' would truncate the URN at the RFC 8141 r/q/f delimiters, and
+// anything outside printable ASCII (whitespace of any kind, control bytes,
+// Unicode) cannot appear in a conforming NSS at all. Mirrors the Go
+// reference's validateFreeFormValue.
+void validate_free_form_value(std::string_view component, std::string_view v) {
+    for (char c : v) {
+        const auto b = static_cast<unsigned char>(c);
+        if (b < 0x21 || b > 0x7e || c == ':' || c == '?' || c == '#') {
+            throw parse_error(error_code::invalid_value,
+                              std::string{"\""} + std::string{v} + "\" for \"" +
+                                  std::string{component} + "\"");
+        }
+    }
+}
+
 }  // namespace
 
 address::address(chain c,
@@ -82,7 +100,8 @@ void address::set_derivation_path(std::string_view dp) {
 void address::set_coin_type(std::string_view ct) {
     auto trimmed = detail::trim(ct);
     if (trimmed.empty()) {
-        throw parse_error(error_code::missing_coin_type);
+        chain_.clear_coin();
+        return;
     }
     std::uint32_t v = 0;
     if (!detail::parse_uint32(trimmed, v)) {
@@ -123,24 +142,50 @@ void address::set_address_format(std::string_view af) {
 }
 
 void address::set_address_prefix(std::string_view ap) {
-    prefix_ = std::string{detail::trim(ap)};
+    auto trimmed = detail::trim(ap);
+    validate_free_form_value(detail::comp_address_prefix, trimmed);
+    prefix_ = std::string{trimmed};
 }
 
 void address::set_address_suffix(std::string_view as) {
-    suffix_ = std::string{detail::trim(as)};
+    auto trimmed = detail::trim(as);
+    validate_free_form_value(detail::comp_address_suffix, trimmed);
+    suffix_ = std::string{trimmed};
 }
 
+void address::set_wallet_type(std::string_view wt) {
+    auto trimmed = detail::trim(wt);
+    validate_free_form_value(detail::comp_wallet_type, trimmed);
+    wallet_type_ = std::string{trimmed};
+}
+
+void address::set_wallet_id(std::string_view wi) {
+    auto trimmed = detail::trim(wi);
+    validate_free_form_value(detail::comp_wallet_id, trimmed);
+    wallet_id_ = std::string{trimmed};
+}
+
+// nss returns the URN namespace-specific string in canonical form. The
+// emission order is the chain identity (nt/ci) first — so the chain key is a
+// strict prefix of the NSS — then the optional coin-type metadata (ct), the
+// derivation domain (dt/dp), address-format metadata (aa/af/ap/as), and the
+// wallet domain (wt/wi) last. Optional components are emitted only when
+// explicitly set, preserving the round-trip with short input forms.
 std::string address::nss() const {
     std::string out;
     out.reserve(64);
 
-    // Chain domain — always present.
+    // Chain identity — always present.
     out += "nt:";
     out += chain_.network().str();
-    out += ":ct:";
-    append_uint32(out, chain_.coin());
     out += ":ci:";
     out += chain_.id();
+
+    // Coin-type metadata — emitted only when explicitly set.
+    if (chain_.coin()) {
+        out += ":ct:";
+        append_uint32(out, *chain_.coin());
+    }
 
     // Derivation domain — present when not ROOT and a non-empty type is set.
     if (path_ && !path_->type().empty() && path_->type() != derivation_type::root) {
@@ -166,6 +211,16 @@ std::string address::nss() const {
     if (!suffix_.empty()) {
         out += ":as:";
         out += suffix_;
+    }
+
+    // Wallet domain — emitted only when explicitly set.
+    if (!wallet_type_.empty()) {
+        out += ":wt:";
+        out += wallet_type_;
+    }
+    if (!wallet_id_.empty()) {
+        out += ":wi:";
+        out += wallet_id_;
     }
     return out;
 }

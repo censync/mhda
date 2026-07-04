@@ -10,12 +10,13 @@
 //
 // Format:
 //
-//   urn:mhda:nt:<network>:ct:<slip44>:ci:<chain_id>:dt:<derivation>:dp:<path>:aa:<algorithm>:af:<format>:ap:<prefix>:as:<suffix>
+//   urn:mhda:nt:<network>:ci:<chain_id>:ct:<slip44>:dt:<derivation>:dp:<path>:aa:<algorithm>:af:<format>:ap:<prefix>:as:<suffix>:wt:<wallet_type>:wi:<wallet_id>
 //
-// Only nt, ct and ci are required. Optional fields aa/af/ap/as are emitted on
-// str() only when explicitly set, preserving short-form round-trip. The
-// chain-domain prefix nt:X:ct:Y:ci:Z is itself a valid chain key returned by
-// chain::key() and consumed by chain::from_key / chain::from_nss.
+// Only nt and ci are required — the (nt, ci) pair is the chain identity. The
+// SLIP-44 coin type (ct) is optional metadata; ct/dt/dp/aa/af/ap/as/wt/wi are
+// emitted on str() only when explicitly set, preserving short-form
+// round-trip. The chain-identity prefix nt:X:ci:Y is itself a valid chain key
+// returned by chain::key() and consumed by chain::from_key / chain::from_nss.
 
 #include "mhda/address.hpp"
 #include "mhda/algorithm.hpp"

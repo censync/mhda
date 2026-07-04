@@ -7,16 +7,23 @@
 using namespace mhda;
 
 TEST_CASE("network_type_from_string is case-insensitive") {
-    auto a = network_type_from_string("xrp");
+    auto a = network_type_from_string("xrpl");
     EXPECT_TRUE(a.has_value());
     EXPECT_EQ(*a, network_type::xrp_ledger);
 
-    auto b = network_type_from_string("  XRP  ");
+    auto b = network_type_from_string("  XRPL  ");
     EXPECT_TRUE(b.has_value());
     EXPECT_EQ(*b, network_type::xrp_ledger);
 
-    auto c = network_type_from_string("xxx");
-    EXPECT_FALSE(c.has_value());
+    auto c = network_type_from_string("solana");
+    EXPECT_TRUE(c.has_value());
+    EXPECT_EQ(*c, network_type::solana);
+
+    // Pre-1.1 short names are gone; there are no aliases.
+    EXPECT_FALSE(network_type_from_string("sol").has_value());
+    EXPECT_FALSE(network_type_from_string("btc").has_value());
+    EXPECT_FALSE(network_type_from_string("xrp").has_value());
+    EXPECT_FALSE(network_type_from_string("xxx").has_value());
 }
 
 TEST_CASE("algorithm helpers") {
@@ -58,7 +65,7 @@ TEST_CASE("derivation_type helpers") {
 
 TEST_CASE("set_derivation_path numeric overflow surfaces correct sentinel") {
     EXPECT_THROW_CODE(parse_urn(
-        "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/0'/0'/0/99999999999999999999"),
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/0'/0'/0/99999999999999999999"),
         error_code::invalid_derivation_path);
 }
 
@@ -66,23 +73,26 @@ TEST_CASE("SLIP-10 programmatic construction round-trips through full URN") {
     auto dp = derivation_path::from_levels(derivation_type::slip10, {
         {44, true}, {501, true}, {0, true}, {0, true},
     });
-    chain   c{network_type::solana, coins::sol, "mainnet"};
+    chain c{network_type::solana, "mainnet"};
+    c.set_coin(coins::sol);
     address a{c, std::optional<derivation_path>{std::move(dp)}};
-    const std::string want = "urn:mhda:nt:sol:ct:501:ci:mainnet:dt:slip10:dp:m/44'/501'/0'/0'";
+    const std::string want = "urn:mhda:nt:solana:ci:mainnet:ct:501:dt:slip10:dp:m/44'/501'/0'/0'";
     EXPECT_EQ(a.str(), want);
 
     auto back = parse_urn_strict(want);
     EXPECT_EQ(back.str(), want);
 }
 
+// The deliberately mismatched ct (1815 on evm) is kept: ct is unvalidated
+// metadata and must not interfere with path parsing.
 TEST_CASE("Cardano CIP-1852 role mapping") {
     struct row { std::string urn; charge_type want_role; };
     std::vector<row> cases = {
-        {"urn:mhda:nt:evm:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/0/0", 0},
-        {"urn:mhda:nt:evm:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/1/0", 1},
-        {"urn:mhda:nt:evm:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/2/0", 2},
-        {"urn:mhda:nt:evm:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/3/0", 3},
-        {"urn:mhda:nt:evm:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/3'/2/7'", 2},
+        {"urn:mhda:nt:evm:ci:mainnet:ct:1815:dt:cip1852:dp:m/1852'/1815'/0'/0/0", 0},
+        {"urn:mhda:nt:evm:ci:mainnet:ct:1815:dt:cip1852:dp:m/1852'/1815'/0'/1/0", 1},
+        {"urn:mhda:nt:evm:ci:mainnet:ct:1815:dt:cip1852:dp:m/1852'/1815'/0'/2/0", 2},
+        {"urn:mhda:nt:evm:ci:mainnet:ct:1815:dt:cip1852:dp:m/1852'/1815'/0'/3/0", 3},
+        {"urn:mhda:nt:evm:ci:mainnet:ct:1815:dt:cip1852:dp:m/1852'/1815'/3'/2/7'", 2},
     };
     for (const auto& c : cases) {
         auto addr = parse_urn(c.urn);

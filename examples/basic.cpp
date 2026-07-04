@@ -8,14 +8,14 @@ int main() {
     using namespace mhda;
 
     // Lenient parsing: structural validation only.
-    auto addr = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto addr = parse_urn("urn:mhda:nt:evm:ci:1");
     std::cout << "network    : " << addr.get_chain().network().str() << "\n";
     std::cout << "algorithm  : " << addr.resolved_algorithm().str() << "\n";
     std::cout << "format     : " << addr.resolved_format().str() << "\n";
 
     // Strict parsing rejects nonsensical (network, algorithm, format) combos.
     try {
-        parse_urn_strict("urn:mhda:nt:evm:ct:60:ci:1:aa:ed25519");
+        parse_urn_strict("urn:mhda:nt:evm:ci:1:aa:ed25519");
     } catch (const parse_error& e) {
         if (e.code() == error_code::incompatible) {
             std::cout << "evm + ed25519 rejected, as expected\n";
@@ -23,7 +23,7 @@ int main() {
     }
 
     // Type-agnostic level-by-level path inspection.
-    auto bip = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0");
+    auto bip = parse_urn("urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0");
     int i = 0;
     for (const auto& lvl : bip.path()->levels()) {
         std::cout << "level[" << i++ << "] = " << lvl.index
@@ -33,10 +33,17 @@ int main() {
     // Hashing for content-addressing or deduplication.
     std::cout << "sha256     : " << bip.hash256() << "\n";
 
-    // The chain-domain triple is itself a parseable key.
+    // The chain identity (nt, ci) is itself a parseable key. Keys never carry
+    // the optional ct metadata; a pre-1.1 key with ct fails loudly with
+    // error_code::coin_type_in_chain_key.
     auto key = bip.get_chain().key();
     auto parsed = chain::from_key(key);
     std::cout << "chain key  : " << parsed.str() << "\n";
+
+    // Optional wallet context: client type + wallet instance id.
+    auto wallet = parse_urn("urn:mhda:nt:evm:ci:1:wt:web3:wi:5f2a8c31");
+    std::cout << "wallet     : " << wallet.wallet_type()
+              << " " << wallet.wallet_id() << "\n";
 
     return 0;
 }

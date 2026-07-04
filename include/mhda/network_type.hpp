@@ -6,9 +6,9 @@
 
 namespace mhda {
 
-// network_type wraps a registered MHDA network identifier (e.g. "evm", "btc",
-// "sol"). Comparison and hashing use the canonical lowercase string. Defaults
-// to an empty (invalid) value.
+// network_type wraps a registered MHDA network identifier (e.g. "evm",
+// "bitcoin", "solana"). Comparison and hashing use the canonical lowercase
+// string. Defaults to an empty (invalid) value.
 class network_type {
 public:
     network_type() = default;

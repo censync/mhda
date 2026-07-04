@@ -12,28 +12,37 @@ MHDA is a URN-based descriptor for blockchain HD addresses, with
 [RFC 8141](https://datatracker.ietf.org/doc/rfc8141/) compatibility.
 
 A single string captures everything needed to identify a derived address:
-network, derivation scheme, path, signature curve, encoding format and any
-prefix/suffix conventions.
+network, derivation scheme, path, signature curve, encoding format, any
+prefix/suffix conventions, and an optional wallet context.
 
 ```
-urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p
+urn:mhda:nt:bitcoin:ci:bitcoin:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p
 ```
 
-Supported networks: Bitcoin, EVM, Avalanche, Tron, Cosmos, Solana, XRP,
+Supported networks: Bitcoin, EVM, Avalanche, Tron, Cosmos, Solana, XRP Ledger,
 Stellar, NEAR, Aptos, Sui, Cardano, Algorand, TON.
+
+The chain identity is the `(nt, ci)` pair; the SLIP-44 coin type is an
+optional `ct` metadata component (for HD addresses the coin already lives in
+the derivation path). The optional wallet domain (`wt`/`wi`) binds an address
+to a client type and a wallet instance:
+
+```
+urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0:wt:web3:wi:5f2a8c31
+```
 
 ## Status
 
-- Version: **1.0.0**
+- Version: **1.1.0**
 - Standard: **C++17**, no external runtime dependencies
-- Tests: **71** unit + fuzz-equivalent stress cases (≈11 000 randomised
+- Tests: **139** unit + fuzz-equivalent stress cases (≈11 000 randomised
   iterations), passing under `-fsanitize=address,undefined,leak`
 - Compilers verified: GCC 11.4 (Ubuntu 22.04), Clang 14 (when libstdc++ is
   available); the CI matrix runs Linux + macOS, Release + Debug
 - Warning policy: clean under `-Wall -Wextra -Wpedantic -Wshadow -Wconversion
   -Wsign-conversion -Werror`
-- API surface frozen at **0.1.0**; binary stability is not yet guaranteed
-  across pre-1.0 minor versions
+- Binary stability is not yet guaranteed across minor versions; 1.1.0
+  changes the URN grammar (see [CHANGELOG.md](./CHANGELOG.md))
 
 ## Building
 
@@ -69,7 +78,7 @@ target_link_libraries(my_app PRIVATE mhda::mhda)
 include(FetchContent)
 FetchContent_Declare(mhda
     GIT_REPOSITORY https://github.com/censync/mhda.git
-    GIT_TAG        v1.0.0
+    GIT_TAG        v1.1.0
 )
 FetchContent_MakeAvailable(mhda)
 target_link_libraries(my_app PRIVATE mhda::mhda)
@@ -85,7 +94,7 @@ int main() {
     using namespace mhda;
 
     // Lenient parsing: structural validation only.
-    auto addr = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto addr = parse_urn("urn:mhda:nt:evm:ci:1");
     std::cout << addr.get_chain().network().str() << "\n";  // evm
     std::cout << addr.resolved_algorithm().str() << "\n";   // secp256k1
     std::cout << addr.resolved_format().str() << "\n";      // hex
@@ -93,7 +102,7 @@ int main() {
     // Strict parsing also checks the (network, algorithm, format, derivation)
     // combination is in the known-good compatibility matrix.
     try {
-        parse_urn_strict("urn:mhda:nt:evm:ct:60:ci:1:aa:ed25519");
+        parse_urn_strict("urn:mhda:nt:evm:ci:1:aa:ed25519");
     } catch (const parse_error& e) {
         if (e.code() == error_code::incompatible) {
             std::cout << "evm + ed25519 rejected, as expected\n";
@@ -101,7 +110,7 @@ int main() {
     }
 
     // Type-agnostic level-by-level path inspection.
-    auto bip = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0");
+    auto bip = parse_urn("urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0");
     for (const auto& lvl : bip.path()->levels()) {
         std::cout << "  " << lvl.index << (lvl.is_hardened ? "'" : "") << "\n";
     }
@@ -109,10 +118,16 @@ int main() {
     // Hashing for content-addressing or deduplication.
     std::cout << bip.hash256() << "\n";   // SHA-256 hex
 
-    // The chain-domain triple (nt, ct, ci) is itself a parseable key.
-    auto key    = bip.get_chain().key();   // "nt:evm:ct:60:ci:1"
+    // The chain identity (nt, ci) is itself a parseable key. Keys never carry
+    // the optional ct metadata; a pre-1.1 key with ct fails loudly with
+    // error_code::coin_type_in_chain_key.
+    auto key    = bip.get_chain().key();   // "nt:evm:ci:1"
     auto parsed = chain::from_key(key);
     (void)parsed;
+
+    // Optional wallet context: client type + wallet instance id.
+    auto wallet = parse_urn("urn:mhda:nt:evm:ci:1:wt:web3:wi:5f2a8c31");
+    std::cout << wallet.wallet_type() << " " << wallet.wallet_id() << "\n";
 }
 ```
 
@@ -122,16 +137,18 @@ A runnable version is in [`examples/basic.cpp`](./examples/basic.cpp).
 
 | Network        | Example URN                                                                                          |
 |----------------|------------------------------------------------------------------------------------------------------|
-| Ethereum       | `urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0`                                            |
-| Bitcoin (BIP86)| `urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p`                     |
-| Solana         | `urn:mhda:nt:sol:ct:501:ci:mainnet:dt:slip10:dp:m/44'/501'/0'/0'`                                    |
-| Stellar        | `urn:mhda:nt:xlm:ct:148:ci:mainnet:dt:slip10:dp:m/44'/148'/0'`                                       |
-| Sui (ed25519)  | `urn:mhda:nt:sui:ct:784:ci:mainnet:dt:slip10:dp:m/44'/784'/0'/0'/0'`                                 |
-| Cardano        | `urn:mhda:nt:ada:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/0/0`                              |
-| Algorand       | `urn:mhda:nt:algo:ct:283:ci:mainnet` (non-HD)                                                        |
-| TON            | `urn:mhda:nt:ton:ct:607:ci:mainnet` (non-HD, friendly base64url default)                             |
-| Cosmos         | `urn:mhda:nt:cosmos:ct:118:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/0/0`                               |
-| EVM short form | `urn:mhda:nt:evm:ct:60:ci:1` (defaults: bip44, secp256k1, hex)                                       |
+| Ethereum       | `urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0`                                                  |
+| Bitcoin (BIP86)| `urn:mhda:nt:bitcoin:ci:bitcoin:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p`                      |
+| Solana         | `urn:mhda:nt:solana:ci:mainnet:dt:slip10:dp:m/44'/501'/0'/0'`                                        |
+| Stellar        | `urn:mhda:nt:stellar:ci:mainnet:dt:slip10:dp:m/44'/148'/0'`                                          |
+| Sui (ed25519)  | `urn:mhda:nt:sui:ci:mainnet:dt:slip10:dp:m/44'/784'/0'/0'/0'`                                        |
+| Cardano        | `urn:mhda:nt:cardano:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/0/0`                                  |
+| Algorand       | `urn:mhda:nt:algorand:ci:mainnet` (non-HD)                                                           |
+| TON            | `urn:mhda:nt:ton:ci:mainnet` (non-HD, friendly base64url default)                                    |
+| Cosmos         | `urn:mhda:nt:cosmos:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/0/0`                                      |
+| EVM short form | `urn:mhda:nt:evm:ci:1` (defaults: secp256k1, hex)                                                    |
+| With metadata  | `urn:mhda:nt:evm:ci:1:ct:60` (optional SLIP-44 annotation)                                           |
+| Wallet-bound   | `urn:mhda:nt:ton:ci:mainnet:wt:tonconnect:wi:c0a8f2d4-3b6e-4a51-9c7d-2f8e1a0b5c93`                   |
 
 ## API mapping (Go → C++)
 
@@ -141,10 +158,14 @@ A runnable version is in [`examples/basic.cpp`](./examples/basic.cpp).
 | `mhda.ParseURNStrict`             | `mhda::parse_urn_strict`                     |
 | `mhda.ParseNSS`                   | `mhda::parse_nss`                            |
 | `mhda.ChainFromKey` / `FromNSS`   | `mhda::chain::from_key` / `from_nss`         |
-| `mhda.NewChain(...)`              | `mhda::chain{...}`                           |
+| `mhda.NewChain(nt, ci)`           | `mhda::chain{nt, ci}`                        |
+| `Chain.SetCoinType` / `ClearCoinType` | `chain::set_coin` / `chain::clear_coin` |
+| `Chain.CoinType` + `HasCoinType`  | `chain::coin` (`std::optional<coin_type>`)   |
 | `mhda.ParseDerivationPath`        | `mhda::derivation_path::parse`               |
 | `mhda.NewDerivationPathFromLevels`| `mhda::derivation_path::from_levels`         |
 | `Address.String()` / `NSS()`      | `address::str` / `address::nss`              |
+| `Address.WalletType` / `WalletId` | `address::wallet_type` / `wallet_id`         |
+| `Address.SetWalletType` / `SetWalletId` | `address::set_wallet_type` / `set_wallet_id` |
 | `Address.MarshalText`             | `address::marshal_text`                      |
 | `Address.UnmarshalText`           | `address::unmarshal_text`                    |
 | `Address.Hash` / `Hash256`        | `address::hash` / `hash256`                  |
@@ -160,9 +181,11 @@ Sentinel constants:
 | `ErrInvalidNSS`               | `error_code::invalid_nss`                      |
 | `ErrMissingNetworkType`       | `error_code::missing_network_type`             |
 | `ErrInvalidNetworkType`       | `error_code::invalid_network_type`             |
-| `ErrMissingCoinType`          | `error_code::missing_coin_type`                |
 | `ErrInvalidCoinType`          | `error_code::invalid_coin_type`                |
 | `ErrMissingChainID`           | `error_code::missing_chain_id`                 |
+| `ErrCoinTypeInChainKey`       | `error_code::coin_type_in_chain_key`           |
+| `ErrInvalidChainKey`          | `error_code::invalid_chain_key`                |
+| `ErrInvalidValue`             | `error_code::invalid_value`                    |
 | `ErrInvalidDerivationType`    | `error_code::invalid_derivation_type`          |
 | `ErrInvalidDerivationPath`    | `error_code::invalid_derivation_path`          |
 | `ErrInvalidAlgorithm`         | `error_code::invalid_algorithm`                |
@@ -191,7 +214,7 @@ Mirrors the [SPEC §8](./SPEC.md#8-concurrency) contract.
 
 ## Testing & validation
 
-- 71 unit + fuzz-equivalent test cases.
+- 139 unit + fuzz-equivalent test cases.
 - Fuzz harness runs ≈11 000 randomised mutations of the historical Go-fuzz
   seed corpus per execution (URN, NSS and derivation-path entry points).
   Contracts verified: no exception other than `parse_error`/`std::invalid_argument`,

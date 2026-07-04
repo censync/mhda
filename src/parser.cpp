@@ -28,6 +28,8 @@ address parse_address_from_components(const std::unordered_map<std::string, std:
     addr.set_address_format(get(detail::comp_address_format));
     addr.set_address_prefix(get(detail::comp_address_prefix));
     addr.set_address_suffix(get(detail::comp_address_suffix));
+    addr.set_wallet_type(get(detail::comp_wallet_type));
+    addr.set_wallet_id(get(detail::comp_wallet_id));
     return addr;
 }
 

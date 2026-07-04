@@ -5,8 +5,8 @@
 using namespace mhda;
 
 TEST_CASE("Hash determinism and shape") {
-    auto a1 = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
-    auto a2 = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto a1 = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
+    auto a2 = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
 
     EXPECT_EQ(a1.hash(),       a2.hash());
     EXPECT_EQ(a1.hash256(),    a2.hash256());
@@ -16,7 +16,7 @@ TEST_CASE("Hash determinism and shape") {
     EXPECT_EQ(a1.hash().size(), 40u);
     EXPECT_EQ(a1.hash256().size(), 64u);
 
-    auto b = parse_urn("urn:mhda:nt:evm:ct:60:ci:2");
+    auto b = parse_urn("urn:mhda:nt:evm:ci:2:ct:60");
     EXPECT_NE(a1.hash256(), b.hash256());
 
     EXPECT_NE(a1.hash(), a1.nss_hash());
@@ -26,13 +26,13 @@ TEST_CASE("Hash determinism and shape") {
 // Reference values pre-computed against the canonical strings via OpenSSL
 // (sha1sum, sha256sum on the exact byte content of str() / nss()).
 TEST_CASE("Hash reference values") {
-    auto addr = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto addr = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
     EXPECT_EQ(addr.hash(),
-              std::string{"1b67879a4e427b4b26dbf1518569b8ddebb6b6ba"});
+              std::string{"25e531aaa6f4668cf5b42d30cffb25b4fd359c10"});
     EXPECT_EQ(addr.nss_hash(),
-              std::string{"5f3e128a6968997f0b00f629296feb5d90678799"});
+              std::string{"85f36c062d728ff1c5a6001efde906f4367cbcf7"});
     EXPECT_EQ(addr.hash256(),
-              std::string{"47ff599055bf943d1fca281f2177859709e2c2dfedb3f75a955dd8c0e65ed034"});
+              std::string{"a682965c81c59da0d8d8d32fdf168ac31e530b394a99ba2a357f3ffe52f74a11"});
     EXPECT_EQ(addr.nss_hash256(),
-              std::string{"88429e10123e1d49cf67d44145a5493c08bf599937541e0dee4fc00873eb8215"});
+              std::string{"828f1579eb41e06dcf1a4b32a0223ce57f4be481d79e62735ca64c4a3696a5a2"});
 }

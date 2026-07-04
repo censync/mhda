@@ -12,10 +12,11 @@ namespace {
 
 const std::unordered_set<std::string_view>& known_components() {
     static const std::unordered_set<std::string_view> set = {
-        comp_network_type, comp_coin_type, comp_chain_id,
+        comp_network_type, comp_chain_id, comp_coin_type,
         comp_derivation_type, comp_derivation_path,
         comp_address_algorithm, comp_address_format,
         comp_address_prefix, comp_address_suffix,
+        comp_wallet_type, comp_wallet_id,
     };
     return set;
 }
@@ -41,13 +42,25 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
             throw parse_error(error_code::invalid_nss,
                               std::string{"missing value for \""} + std::string{key} + "\"");
         }
-        // RFC 8141 NSS does not permit unescaped whitespace; trim it so any
-        // trailing space (e.g. from "ci:0 #frag" where strip_rqf leaves the
-        // space) does not leak into the canonical form and break round-trip.
+        // RFC 8141 NSS does not permit unescaped whitespace; trim ASCII
+        // whitespace so any trailing space (e.g. from "ci:0 #frag" where
+        // strip_rqf leaves the space) does not leak into the canonical form
+        // and break round-trip.
         auto value = trim(parts[i + 1]);
         if (value.empty()) {
             throw parse_error(error_code::invalid_nss,
                               std::string{"empty value for \""} + std::string{key} + "\"");
+        }
+        // Everything that survives the trim must be printable ASCII (SPEC
+        // §1.5) — interior whitespace, control bytes and Unicode spaces are
+        // all malformed input, never silently normalised.
+        for (char c : value) {
+            const auto b = static_cast<unsigned char>(c);
+            if (b < 0x21 || b > 0x7e) {
+                throw parse_error(error_code::invalid_nss,
+                                  std::string{"non-ASCII or control byte in value for \""} +
+                                      std::string{key} + "\"");
+            }
         }
         std::string key_str{key};
         if (out.count(key_str)) {

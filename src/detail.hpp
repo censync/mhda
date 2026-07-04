@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cctype>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -13,12 +12,22 @@ inline char ascii_lower(char c) noexcept {
     return (c >= 'A' && c <= 'Z') ? char(c + 32) : c;
 }
 
-// trim removes leading and trailing ASCII whitespace.
+// is_ascii_space matches exactly the six ASCII whitespace characters
+// (" \t\n\v\f\r"), mirroring Go's asciiTrim cutset. Deliberately not
+// std::isspace: that is locale-sensitive, and Unicode spaces (NBSP,
+// ideographic space, ...) must NOT count as whitespace — an NSS is ASCII by
+// definition (RFC 8141), so a Unicode space is not decoration to strip; it
+// stays in place and the value charset check rejects it loudly.
+inline bool is_ascii_space(char c) noexcept {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+}
+
+// trim removes leading and trailing ASCII whitespace only (see is_ascii_space).
 inline std::string_view trim(std::string_view s) noexcept {
     std::size_t i = 0;
-    while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) ++i;
+    while (i < s.size() && is_ascii_space(s[i])) ++i;
     std::size_t j = s.size();
-    while (j > i && std::isspace(static_cast<unsigned char>(s[j - 1]))) --j;
+    while (j > i && is_ascii_space(s[j - 1])) --j;
     return s.substr(i, j - i);
 }
 
@@ -73,9 +82,14 @@ inline std::vector<std::string_view> split(std::string_view s, char sep) {
     return out;
 }
 
-// parse_uint32 parses a decimal or "0x"-prefixed hex string into a uint32_t.
-// Returns false on invalid input or 32-bit overflow. Mirrors Go's
-// strconv.ParseUint(s, 0, 32).
+// parse_uint32 parses the two documented "ct" spellings — plain decimal or
+// "0x"/"0X"-prefixed hex — into a uint32_t. Returns false on invalid input or
+// 32-bit overflow. Mirrors Go's parseCoinType: Go integer-literal extras
+// (0o/0b prefixes, digit-group underscores, signs) are deliberately rejected,
+// a leading zero is plain decimal ("060" == 60, never octal), and a bare "0x"
+// with no digits is invalid. Allowing several spellings of one value would
+// defeat duplicate detection and the canonical-form guarantees. Used only by
+// the coin-type ("ct") parsing paths.
 bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept;
 
 // parse_uint32_dec parses a strictly decimal uint32_t. Used by per-level

@@ -19,15 +19,17 @@ using namespace mhda;
 namespace {
 
 const std::vector<std::string> kSeedURNs = {
-    "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/1'/0/1:aa:secp256k1:af:hex:ap:0x",
-    "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/2'/0/2'",
-    "urn:mhda:nt:evm:ct:60:ci:1",
-    "urn:mhda:nt:btc:ct:0:ci:bitcoin_testnet:dt:bip44:dp:m/44'/0'/0'/0/0",
-    "urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip44:dp:m/44'/0'/1'/0/1:aa:secp256k1:af:p2pkh:ap:1",
-    "urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip84:dp:m/84'/0'/2'/0/2",
-    "urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip84:dp:m/84'/0'/0'/0/0:af:bech32",
-    "urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p",
-    "urn:mhda:nt:cosmos:ct:118:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/0/0",
+    "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/1'/0/1:aa:secp256k1:af:hex:ap:0x",
+    "urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/2'/0/2'",
+    "urn:mhda:nt:evm:ci:1",
+    "urn:mhda:nt:bitcoin:ci:bitcoin_testnet:ct:0:dt:bip44:dp:m/44'/0'/0'/0/0",
+    "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip44:dp:m/44'/0'/1'/0/1:aa:secp256k1:af:p2pkh:ap:1",
+    "urn:mhda:nt:bitcoin:ci:bitcoin:dt:bip84:dp:m/84'/0'/2'/0/2",
+    "urn:mhda:nt:bitcoin:ci:bitcoin:dt:bip84:dp:m/84'/0'/0'/0/0:af:bech32",
+    "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p",
+    "urn:mhda:nt:cosmos:ci:cosmoshub:ct:118:dt:cip11:dp:m/44'/118'/0'/0/0",
+    "urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0:wt:web3:wi:5f2a8c31",
+    "urn:mhda:nt:ton:ci:mainnet:wt:tonconnect:wi:c0a8f2d4-3b6e-4a51-9c7d-2f8e1a0b5c93",
     // Historically problematic / degenerate inputs from go-mhda fuzz seeds.
     "",
     "urn:mhda:",
@@ -40,12 +42,16 @@ const std::vector<std::string> kSeedURNs = {
     "urn:mhda:nt:evm:ct:",
     "urn:mhda:nt:evm:ct:60:ci",
     "urn:mhda:nt:evm:ct:60:ci:",
-    "urn:mhda:nt:evm:ct:60:ci:1:xx:y",
+    "urn:mhda:nt:evm:ci:1:ct:60:xx:y",
     "urn:mhda:::::::",
-    "urn:mhda:nt:evm:ct:60:ci:1:aa:",
-    "urn:mhda:nt:evm:ct:60:ci:1:af:",
-    "urn:mhdA:nt:BtC:ct:0:ci:0 #",
-    "URN:MHDA:nt:evm:ct:60:ci:1?+x=y",
+    "urn:mhda:nt:evm:ci:1:ct:60:aa:",
+    "urn:mhda:nt:evm:ci:1:ct:60:af:",
+    "urn:mhda:nt:evm:ci:1:wt:web3:wi:5f2a8c31",
+    "urn:mhda:nt:evm:ci:1:wt:",
+    "urn:mhda:nt:evm:ci:1:wi:",
+    "urn:mhda:wt:web3:nt:evm:ci:1",
+    "urn:mhdA:nt:BitCoin:ct:0:ci:0 #",
+    "URN:MHDA:nt:evm:ci:1:ct:60?+x=y",
 };
 
 const std::vector<std::pair<std::string, std::string>> kSeedPaths = {
@@ -176,7 +182,8 @@ TEST_CASE("FuzzParseNSS: no panic, no half-state on success") {
         }
     }
     const std::vector<std::string> bare_seeds = {
-        "", "n", "nt", "nt:", "nt:evm", "nt:evm:ct:60:ci:1",
+        "", "n", "nt", "nt:", "nt:evm", "nt:evm:ci:1:ct:60", "nt:evm:ci:1",
+        "nt:evm:ci:1:wt:web3:wi:5f2a8c31",
     };
     for (const auto& s : bare_seeds) check(s);
     for (int i = 0; i < kIterations; ++i) {
