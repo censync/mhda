@@ -20,72 +20,74 @@ using namespace mhda;
 // ---------------------------------------------------------------------------
 
 TEST_CASE("coin_type accepts uint32 max (decimal)") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:4294967295:ci:1");
-    EXPECT_EQ(a.get_chain().coin(), std::numeric_limits<std::uint32_t>::max());
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ct:4294967295:ci:1"});
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:4294967295");
+    EXPECT_TRUE(a.get_chain().coin().has_value());
+    EXPECT_EQ(*a.get_chain().coin(), std::numeric_limits<std::uint32_t>::max());
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1:ct:4294967295"});
 }
 
 TEST_CASE("coin_type accepts uint32 max (hex)") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:0xFFFFFFFF:ci:1");
-    EXPECT_EQ(a.get_chain().coin(), std::numeric_limits<std::uint32_t>::max());
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:0xFFFFFFFF");
+    EXPECT_TRUE(a.get_chain().coin().has_value());
+    EXPECT_EQ(*a.get_chain().coin(), std::numeric_limits<std::uint32_t>::max());
     // Canonical str() emits decimal.
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ct:4294967295:ci:1"});
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1:ct:4294967295"});
 }
 
 TEST_CASE("coin_type rejects uint32 max + 1 (decimal)") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ct:4294967296:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ci:1:ct:4294967296"),
                       error_code::invalid_coin_type);
 }
 
 TEST_CASE("coin_type rejects uint32 max + 1 (hex)") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ct:0x100000000:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ci:1:ct:0x100000000"),
                       error_code::invalid_coin_type);
 }
 
 TEST_CASE("coin_type rejects bare 0x with no digits") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ct:0x:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ci:1:ct:0x"),
                       error_code::invalid_coin_type);
 }
 
 TEST_CASE("coin_type rejects negative sign") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ct:-1:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ci:1:ct:-1"),
                       error_code::invalid_coin_type);
 }
 
 TEST_CASE("coin_type rejects leading plus") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ct:+1:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ci:1:ct:+1"),
                       error_code::invalid_coin_type);
 }
 
 TEST_CASE("derivation_path leaf accepts uint32 max") {
     auto a = parse_urn(
-        "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/4294967295");
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967295");
     EXPECT_EQ(a.path()->index().index, std::numeric_limits<std::uint32_t>::max());
     EXPECT_EQ(a.str(),
-        std::string{"urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/4294967295"});
+        std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967295"});
 }
 
 TEST_CASE("derivation_path leaf rejects uint32 max + 1") {
     EXPECT_THROW_CODE(parse_urn(
-        "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/4294967296"),
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967296"),
         error_code::invalid_derivation_path);
 }
 
 TEST_CASE("BIP-44 charge field rejects values outside {0,1}") {
     EXPECT_THROW_CODE(parse_urn(
-        "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/2/0"),
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/2/0"),
         error_code::invalid_derivation_path);
 }
 
 TEST_CASE("CIP-11 charge accepts non-{0,1} (Cosmos charge_extra)") {
     auto a = parse_urn(
-        "urn:mhda:nt:cosmos:ct:118:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/9/0");
+        "urn:mhda:nt:cosmos:ci:cosmoshub:ct:118:dt:cip11:dp:m/44'/118'/0'/9/0");
     EXPECT_EQ(a.path()->charge(), charge_type{9});
 }
 
 TEST_CASE("BIP-44 wrong purpose level rejected") {
     EXPECT_THROW_CODE(parse_urn(
-        "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/45'/60'/0'/0/0"),
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/45'/60'/0'/0/0"),
         error_code::invalid_derivation_path);
 }
 
@@ -150,7 +152,7 @@ TEST_CASE("very long SLIP-10 path (256 levels) round-trips") {
 
 TEST_CASE("very long chain_id (4 KiB) round-trips") {
     std::string ci(4096, 'x');
-    std::string urn = "urn:mhda:nt:evm:ct:60:ci:" + ci;
+    std::string urn = "urn:mhda:nt:evm:ci:" + ci + ":ct:60";
     auto a = parse_urn(urn);
     EXPECT_EQ(a.get_chain().id().size(), 4096u);
     EXPECT_EQ(a.str(), urn);
@@ -159,7 +161,7 @@ TEST_CASE("very long chain_id (4 KiB) round-trips") {
 TEST_CASE("very long prefix and suffix round-trip") {
     std::string ap(512, 'p');
     std::string as(512, 's');
-    std::string urn = "urn:mhda:nt:evm:ct:60:ci:1:ap:" + ap + ":as:" + as;
+    std::string urn = "urn:mhda:nt:evm:ci:1:ct:60:ap:" + ap + ":as:" + as;
     auto a = parse_urn(urn);
     EXPECT_EQ(a.prefix().size(), 512u);
     EXPECT_EQ(a.suffix().size(), 512u);
@@ -170,7 +172,7 @@ TEST_CASE("megabyte URN is parsed without crashing") {
     // 1 MiB chain_id — guards against accidental quadratic copies in the
     // canonical-form rebuild path.
     std::string ci(1u << 20, 'A');
-    std::string urn = "urn:mhda:nt:evm:ct:60:ci:" + ci;
+    std::string urn = "urn:mhda:nt:evm:ci:" + ci;
     auto a = parse_urn(urn);
     EXPECT_EQ(a.get_chain().id().size(), std::size_t{1} << 20);
     // Round-tripping a megabyte string is wasteful in tests; just confirm
@@ -183,12 +185,10 @@ TEST_CASE("megabyte URN is parsed without crashing") {
 // NUL / non-printable bytes
 // ---------------------------------------------------------------------------
 
-TEST_CASE("embedded NUL byte in chain_id is preserved (no truncation)") {
-    std::string urn = "urn:mhda:nt:evm:ct:60:ci:abc";
-    urn[urn.size() - 2] = '\0';  // "ab\0c" inside ci
-    auto a = parse_urn(urn);
-    EXPECT_EQ(a.get_chain().id().size(), 3u);
-    EXPECT_EQ(a.get_chain().id()[1], '\0');
+TEST_CASE("embedded NUL byte in chain_id is rejected (printable ASCII only)") {
+    std::string urn = "urn:mhda:nt:evm:ci:abc";
+    urn[urn.size() - 2] = '\0';  // "a\0c" inside ci
+    EXPECT_THROW_CODE(parse_urn(urn), error_code::invalid_nss);
 }
 
 TEST_CASE("input with only the URN prefix is rejected") {
@@ -211,21 +211,21 @@ TEST_CASE("single-character noise inputs reject without crash") {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("duplicate components are rejected with invalid_nss") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:nt:btc:ct:60:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:nt:bitcoin:ci:1:ct:60"),
                       error_code::invalid_nss);
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ct:60:ct:0:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:evm:ci:1:ct:60:ct:0"),
                       error_code::invalid_nss);
 }
 
 TEST_CASE("unknown component keys are silently skipped") {
     // Forward-compat: a future "xx" component must not break parsing of the
     // surrounding components.
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:xx:future");
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ct:60:ci:1"});
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60:xx:future");
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1:ct:60"});
 }
 
 TEST_CASE("string_view trim of fully-whitespace value rejects") {
-    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:   :ct:60:ci:1"),
+    EXPECT_THROW_CODE(parse_urn("urn:mhda:nt:   :ci:1:ct:60"),
                       error_code::invalid_nss);
 }
 
@@ -270,7 +270,7 @@ TEST_CASE("default-constructed derivation_path serialises empty") {
 
 TEST_CASE("default-constructed chain serialises with empty network slot") {
     chain c;
-    EXPECT_EQ(c.str(), std::string{"nt::ct:0:ci:"});
+    EXPECT_EQ(c.str(), std::string{"nt::ci:"});
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ TEST_CASE("default-constructed chain serialises with empty network slot") {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("set_address_algorithm rejects unknown without mutating") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:aa:secp256k1");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60:aa:secp256k1");
     bool threw = false;
     try { a.set_address_algorithm("rsa"); } catch (const parse_error&) { threw = true; }
     EXPECT_TRUE(threw);
@@ -286,7 +286,7 @@ TEST_CASE("set_address_algorithm rejects unknown without mutating") {
 }
 
 TEST_CASE("set_address_format rejects unknown without mutating") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:af:hex");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60:af:hex");
     bool threw = false;
     try { a.set_address_format("zzz"); } catch (const parse_error&) { threw = true; }
     EXPECT_TRUE(threw);
@@ -294,15 +294,16 @@ TEST_CASE("set_address_format rejects unknown without mutating") {
 }
 
 TEST_CASE("set_coin_type rejects bad input without mutating") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
     bool threw = false;
     try { a.set_coin_type("not_a_number"); } catch (const parse_error&) { threw = true; }
     EXPECT_TRUE(threw);
-    EXPECT_EQ(a.get_chain().coin(), 60u);
+    EXPECT_TRUE(a.get_chain().coin().has_value());
+    EXPECT_EQ(*a.get_chain().coin(), 60u);
 }
 
 TEST_CASE("self-assignment via reference leaves address unchanged") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
     const std::string before = a.str();
     address& ref = a;
     a = ref;  // routed through a reference to silence -Wself-assign-overloaded
@@ -343,13 +344,19 @@ TEST_CASE("chain::from_nss rejects empty input") {
 }
 
 TEST_CASE("chain::from_nss rejects unknown network") {
-    EXPECT_THROW_CODE(chain::from_nss("nt:xyz:ct:0:ci:any"),
+    EXPECT_THROW_CODE(chain::from_nss("nt:xyz:ci:any:ct:0"),
                       error_code::invalid_network_type);
 }
 
-TEST_CASE("chain::from_key with extra components ignores them") {
-    auto c = chain::from_key("nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0");
+TEST_CASE("chain::from_key is strict about extra components") {
+    // The lenient extractor tolerates a full address NSS...
+    auto c = chain::from_nss("nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/0");
     EXPECT_EQ(c.network(), network_type::ethereum_vm);
     EXPECT_EQ(c.id(), std::string{"1"});
-    EXPECT_EQ(c.str(), std::string{"nt:evm:ct:60:ci:1"});
+    EXPECT_EQ(c.str(), std::string{"nt:evm:ci:1"});
+    // ...while the strict key parser rejects anything beyond the identity.
+    EXPECT_THROW_CODE(chain::from_key("nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0"),
+                      error_code::invalid_chain_key);
+    EXPECT_THROW_CODE(chain::from_key("nt:evm:ci:1:ct:60"),
+                      error_code::coin_type_in_chain_key);
 }

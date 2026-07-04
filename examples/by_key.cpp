@@ -1,15 +1,16 @@
 // by_key — a small command-line tool that takes an MHDA URN as its argument
 // (or reads one per line from stdin) and prints a structured breakdown of
-// the descriptor: chain triple, derivation path with level-by-level view,
-// resolved algorithm/format defaults, prefix/suffix metadata and the four
-// hash flavours. It also runs strict validation and reports the result.
+// the descriptor: chain identity plus coin-type metadata, derivation path
+// with level-by-level view, resolved algorithm/format defaults, prefix/suffix
+// and wallet-domain metadata and the four hash flavours. It also runs strict
+// validation and reports the result.
 //
 // Build:
 //   cmake --build build --target mhda_by_key
 //
 // Examples:
-//   ./build/examples/mhda_by_key  'urn:mhda:nt:evm:ct:60:ci:1'
-//   echo 'urn:mhda:nt:sol:ct:501:ci:mainnet' | ./build/examples/mhda_by_key
+//   ./build/examples/mhda_by_key  'urn:mhda:nt:evm:ci:1'
+//   echo 'urn:mhda:nt:solana:ci:mainnet' | ./build/examples/mhda_by_key
 
 #include <cstdlib>
 #include <iostream>
@@ -46,7 +47,13 @@ int describe(std::ostream& out, const std::string& urn) {
         << "nss    : " << addr.nss() << "\n"
         << "------- chain --------\n"
         << "  network    : " << addr.get_chain().network().str() << "\n"
-        << "  coin (slip): " << addr.get_chain().coin() << "\n"
+        << "  coin (slip): ";
+    if (addr.get_chain().coin()) {
+        out << *addr.get_chain().coin();
+    } else {
+        out << "(unset)";
+    }
+    out << "\n"
         << "  chain id   : " << addr.get_chain().id() << "\n"
         << "  key        : " << addr.get_chain().key() << "\n";
 
@@ -84,6 +91,12 @@ int describe(std::ostream& out, const std::string& urn) {
     out << "\n";
     if (!addr.prefix().empty()) out << "  prefix     : " << addr.prefix() << "\n";
     if (!addr.suffix().empty()) out << "  suffix     : " << addr.suffix() << "\n";
+
+    if (!addr.wallet_type().empty() || !addr.wallet_id().empty()) {
+        out << "------- wallet ------\n";
+        if (!addr.wallet_type().empty()) out << "  type       : " << addr.wallet_type() << "\n";
+        if (!addr.wallet_id().empty())   out << "  id         : " << addr.wallet_id() << "\n";
+    }
 
     out << "------- hashes ------\n"
         << "  sha1(urn)  : " << addr.hash() << "\n"

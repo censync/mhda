@@ -36,7 +36,7 @@ TEST_CASE("ParseDerivationPath errors") {
 }
 
 TEST_CASE("BIP44 levels view") {
-    auto addr = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/60'/1'/0/2");
+    auto addr = parse_urn("urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/1'/0/2");
     std::vector<address_index> want = {
         {44, true}, {60, true}, {1, true}, {0, false}, {2, false},
     };
@@ -47,7 +47,9 @@ TEST_CASE("BIP44 levels view") {
 }
 
 TEST_CASE("CIP-1852 levels exposed correctly") {
-    auto addr = parse_urn("urn:mhda:nt:evm:ct:1815:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/3'/2/7");
+    // The deliberately mismatched ct (1815 on evm) is fine: ct is unvalidated
+    // metadata.
+    auto addr = parse_urn("urn:mhda:nt:evm:ci:mainnet:ct:1815:dt:cip1852:dp:m/1852'/1815'/3'/2/7");
     std::vector<address_index> want = {
         {1852, true}, {1815, true}, {3, true}, {2, false}, {7, false},
     };
@@ -57,7 +59,7 @@ TEST_CASE("CIP-1852 levels exposed correctly") {
 }
 
 TEST_CASE("SLIP-10 mixed hardening round-trip") {
-    const std::string urn = "urn:mhda:nt:evm:ct:0:ci:mainnet:dt:slip10:dp:m/44'/0'/0'/0/5";
+    const std::string urn = "urn:mhda:nt:evm:ci:mainnet:ct:0:dt:slip10:dp:m/44'/0'/0'/0/5";
     auto addr = parse_urn(urn);
     std::vector<address_index> want = {
         {44, true}, {0, true}, {0, true}, {0, false}, {5, false},
@@ -100,9 +102,9 @@ TEST_CASE("from_levels ZIP-32 variable length") {
 
 TEST_CASE("BIP44 family round-trip") {
     const char* cases[] = {
-        "urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip49:dp:m/49'/0'/0'/0/0:af:p2sh",
-        "urn:mhda:nt:evm:ct:784:ci:1:dt:bip54:dp:m/54'/784'/0'/0/0",
-        "urn:mhda:nt:evm:ct:784:ci:1:dt:bip74:dp:m/74'/784'/0'/0/0",
+        "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip49:dp:m/49'/0'/0'/0/0:af:p2sh",
+        "urn:mhda:nt:evm:ci:1:ct:784:dt:bip54:dp:m/54'/784'/0'/0/0",
+        "urn:mhda:nt:evm:ci:1:ct:784:dt:bip74:dp:m/74'/784'/0'/0/0",
     };
     for (auto* in : cases) {
         auto addr = parse_urn(in);
@@ -111,13 +113,13 @@ TEST_CASE("BIP44 family round-trip") {
 }
 
 TEST_CASE("CIP-11 emits coin 118 not 133") {
-    const std::string in = "urn:mhda:nt:cosmos:ct:118:ci:cosmoshub:dt:cip11:dp:m/44'/118'/3'/0/7";
+    const std::string in = "urn:mhda:nt:cosmos:ci:cosmoshub:ct:118:dt:cip11:dp:m/44'/118'/3'/0/7";
     auto addr = parse_urn(in);
     EXPECT_EQ(addr.str(), in);
 }
 
 TEST_CASE("BIP44 hardened leaf round-trip") {
-    const std::string in = "urn:mhda:nt:evm:ct:60:ci:1:dt:bip44:dp:m/44'/0'/0'/0/0'";
+    const std::string in = "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/0'/0'/0/0'";
     auto addr = parse_urn(in);
     EXPECT_EQ(addr.str(), in);
     EXPECT_TRUE(addr.path()->is_hardened_address());
@@ -125,9 +127,9 @@ TEST_CASE("BIP44 hardened leaf round-trip") {
 
 TEST_CASE("ZIP32 variable-length URN round-trip") {
     const char* urns[] = {
-        "urn:mhda:nt:btc:ct:133:ci:zcash:dt:zip32:dp:m/32'/133'/0'",
-        "urn:mhda:nt:btc:ct:133:ci:zcash:dt:zip32:dp:m/32'/133'/0'/0",
-        "urn:mhda:nt:btc:ct:133:ci:zcash:dt:zip32:dp:m/32'/133'/0'/0'",
+        "urn:mhda:nt:bitcoin:ci:zcash:ct:133:dt:zip32:dp:m/32'/133'/0'",
+        "urn:mhda:nt:bitcoin:ci:zcash:ct:133:dt:zip32:dp:m/32'/133'/0'/0",
+        "urn:mhda:nt:bitcoin:ci:zcash:ct:133:dt:zip32:dp:m/32'/133'/0'/0'",
     };
     for (auto* in : urns) {
         auto addr = parse_urn(in);

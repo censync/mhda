@@ -10,37 +10,38 @@
 
 using namespace mhda;
 
-TEST_CASE("AVM has no default format and validates without one") {
-    auto a = parse_urn_strict("urn:mhda:nt:avm:ct:9000:ci:1");
+TEST_CASE("Avalanche has no default format and validates without one") {
+    auto a = parse_urn_strict("urn:mhda:nt:avalanche:ci:1:ct:9000");
     EXPECT_EQ(a.resolved_format(), format{});  // intentionally unset
     EXPECT_EQ(a.resolved_algorithm(), algorithm::secp256k1);
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:avm:ct:9000:ci:1"});
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:avalanche:ci:1:ct:9000"});
 }
 
 TEST_CASE("Bitcoin has no default format and validates without one") {
-    auto a = parse_urn_strict("urn:mhda:nt:btc:ct:0:ci:bitcoin");
+    auto a = parse_urn_strict("urn:mhda:nt:bitcoin:ci:bitcoin:ct:0");
     EXPECT_EQ(a.resolved_format(), format{});
     EXPECT_EQ(a.resolved_algorithm(), algorithm::secp256k1);
 }
 
 TEST_CASE("unmarshal_text replaces state, not merges") {
     auto a = parse_urn(
-        "urn:mhda:nt:btc:ct:0:ci:bitcoin:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p");
+        "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m:ap:bc1p");
     EXPECT_FALSE(a.prefix().empty());
     EXPECT_FALSE(a.explicit_format().empty());
 
-    a.unmarshal_text("urn:mhda:nt:evm:ct:60:ci:1");
+    a.unmarshal_text("urn:mhda:nt:evm:ci:1:ct:60");
 
     EXPECT_EQ(a.get_chain().network(), network_type::ethereum_vm);
-    EXPECT_EQ(a.get_chain().coin(), coins::eth);
+    EXPECT_TRUE(a.get_chain().coin().has_value());
+    EXPECT_EQ(*a.get_chain().coin(), coins::eth);
     EXPECT_TRUE(a.prefix().empty());        // bc1p must be wiped
     EXPECT_TRUE(a.explicit_format().empty());// bech32m must be wiped
     EXPECT_EQ(a.get_derivation_type(), derivation_type::root);
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ct:60:ci:1"});
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1:ct:60"});
 }
 
 TEST_CASE("unmarshal_text rejection leaves receiver intact") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
     const std::string before = a.str();
     bool threw = false;
     try {
@@ -73,17 +74,17 @@ TEST_CASE("derivation_path::parse with empty type rejects") {
 }
 
 TEST_CASE("set_address_algorithm/format reset trims values") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1:aa:secp256k1:af:hex");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60:aa:secp256k1:af:hex");
     a.set_address_algorithm("  ");  // whitespace-only resets
     a.set_address_format("");
     EXPECT_TRUE(a.explicit_algorithm().empty());
     EXPECT_TRUE(a.explicit_format().empty());
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ct:60:ci:1"});
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1:ct:60"});
 }
 
 TEST_CASE("address copy and move preserve serialised form") {
     auto orig = parse_urn(
-        "urn:mhda:nt:cosmos:ct:118:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/0/0");
+        "urn:mhda:nt:cosmos:ci:cosmoshub:ct:118:dt:cip11:dp:m/44'/118'/0'/0/0");
     address copy = orig;
     EXPECT_EQ(copy.str(), orig.str());
 
@@ -94,29 +95,30 @@ TEST_CASE("address copy and move preserve serialised form") {
 TEST_CASE("very long chain_id round-trips intact") {
     // Cosmos-style chain_id can be arbitrarily long (e.g. axelar-dojo-1).
     std::string ci(200, 'a');
-    std::string urn = "urn:mhda:nt:cosmos:ct:118:ci:" + ci;
+    std::string urn = "urn:mhda:nt:cosmos:ci:" + ci + ":ct:118";
     auto a = parse_urn(urn);
     EXPECT_EQ(a.get_chain().id(), ci);
     EXPECT_EQ(a.str(), urn);
 }
 
 TEST_CASE("hardened address index round-trip with 0x form coin type") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:0x3c:ci:1");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:0x3c");
     // 0x3c == 60 (decimal); canonical str() emits decimal.
-    EXPECT_EQ(a.get_chain().coin(), 60u);
-    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ct:60:ci:1"});
+    EXPECT_TRUE(a.get_chain().coin().has_value());
+    EXPECT_EQ(*a.get_chain().coin(), 60u);
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1:ct:60"});
 }
 
 TEST_CASE("explicit set_coin via 0x and decimal are equivalent") {
-    address a{chain{network_type::ethereum_vm, 0, "1"}, std::nullopt};
+    address a{chain{network_type::ethereum_vm, "1"}, std::nullopt};
     a.set_coin_type("0xa86a");
-    EXPECT_EQ(a.get_chain().coin(), 0xa86au);
+    EXPECT_EQ(*a.get_chain().coin(), 0xa86au);
     a.set_coin_type("60");
-    EXPECT_EQ(a.get_chain().coin(), 60u);
+    EXPECT_EQ(*a.get_chain().coin(), 60u);
 }
 
 TEST_CASE("optional path() empty for ROOT-form addresses") {
-    auto a = parse_urn("urn:mhda:nt:evm:ct:60:ci:1");
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1:ct:60");
     // Path is set (to ROOT) by parse_address_from_components, but the
     // public derivation_type accessor reports root.
     EXPECT_EQ(a.get_derivation_type(), derivation_type::root);
@@ -124,10 +126,10 @@ TEST_CASE("optional path() empty for ROOT-form addresses") {
 
 TEST_CASE("validate accepts ROOT for every registered network") {
     const std::vector<std::string> nets = {
-        "btc:0:bitcoin", "evm:60:1", "avm:9000:1", "tvm:195:mainnet",
-        "cosmos:118:cosmoshub", "sol:501:mainnet", "xrp:144:mainnet",
-        "xlm:148:mainnet", "near:397:mainnet", "apt:637:mainnet",
-        "sui:784:mainnet", "ada:1815:mainnet", "algo:283:mainnet",
+        "bitcoin:0:bitcoin", "evm:60:1", "avalanche:9000:1", "tron:195:mainnet",
+        "cosmos:118:cosmoshub", "solana:501:mainnet", "xrpl:144:mainnet",
+        "stellar:148:mainnet", "near:397:mainnet", "aptos:637:mainnet",
+        "sui:784:mainnet", "cardano:1815:mainnet", "algorand:283:mainnet",
         "ton:607:mainnet",
     };
     for (const auto& triple : nets) {
@@ -136,7 +138,7 @@ TEST_CASE("validate accepts ROOT for every registered network") {
         const std::string nt = triple.substr(0, first);
         const std::string ct = triple.substr(first + 1, second - first - 1);
         const std::string ci = triple.substr(second + 1);
-        const std::string urn = "urn:mhda:nt:" + nt + ":ct:" + ct + ":ci:" + ci;
+        const std::string urn = "urn:mhda:nt:" + nt + ":ci:" + ci + ":ct:" + ct;
         EXPECT_NO_THROW(parse_urn_strict(urn));
     }
 }

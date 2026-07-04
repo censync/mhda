@@ -8,7 +8,6 @@ const char* error_message(error_code c) noexcept {
         case error_code::invalid_nss:             return "mhda: cannot parse nss";
         case error_code::missing_network_type:    return "mhda: \"nt\" is required";
         case error_code::invalid_network_type:    return "mhda: invalid \"nt\"";
-        case error_code::missing_coin_type:       return "mhda: \"ct\" is required";
         case error_code::invalid_coin_type:       return "mhda: invalid \"ct\"";
         case error_code::missing_chain_id:        return "mhda: \"ci\" is required";
         case error_code::invalid_derivation_type: return "mhda: invalid \"dt\"";
@@ -17,6 +16,9 @@ const char* error_message(error_code c) noexcept {
         case error_code::invalid_format:          return "mhda: invalid \"af\"";
         case error_code::incompatible:            return "mhda: incompatible network/algorithm/format";
         case error_code::uninitialized_address:   return "mhda: address is not initialized";
+        case error_code::invalid_value:           return "mhda: invalid component value";
+        case error_code::coin_type_in_chain_key:  return "mhda: \"ct\" is not allowed in a chain key";
+        case error_code::invalid_chain_key:       return "mhda: not a valid chain key";
     }
     return "mhda: unknown error";
 }
