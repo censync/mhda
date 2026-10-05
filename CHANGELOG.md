@@ -67,6 +67,15 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   `parse_error(invalid_derivation_path)`. BIP-32 serialises a key's depth
   in one byte, so no wallet can represent a deeper key.
 
+### Documentation
+
+- SPEC.md states that an explicit `dt:root` is folded away (root is the
+  default and has no path, so a root address has one canonical form and
+  one hash); the Algorand and TON notes no longer call `dt:root` the
+  canonical form. It also lists ZIP-32 as a known limitation: `zip32`
+  parses, but no network registers it, so strict parsing refuses it. Both
+  behaviours are unchanged and now pinned by tests.
+
 ### Fixed
 
 - **Static initialisation and destruction order.** The named constants

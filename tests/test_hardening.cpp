@@ -224,3 +224,19 @@ TEST_CASE("programmatic values cannot inject components") {
         EXPECT_THROW_CODE(p.set_type(derivation_type{dt}), error_code::invalid_derivation_type);
     }
 }
+
+// SPEC §12: zip32 parses leniently, but no network registers it, so strict
+// parsing refuses it on every network. Mirrors go-mhda.
+TEST_CASE("zip32 has no network") {
+    for (const auto& nt : {network_type::bitcoin, network_type::ethereum_vm,
+                           network_type::avalanche_vm, network_type::tron_vm,
+                           network_type::cosmos, network_type::solana,
+                           network_type::xrp_ledger, network_type::stellar,
+                           network_type::near_protocol, network_type::aptos,
+                           network_type::sui, network_type::cardano,
+                           network_type::algorand, network_type::toncoin}) {
+        const std::string urn = "urn:mhda:nt:" + nt.str() + ":ci:x:dt:zip32:dp:m/32'/133'/0'";
+        EXPECT_NO_THROW(parse_urn(urn));
+        EXPECT_THROW_CODE(parse_urn_strict(urn), error_code::incompatible);
+    }
+}
