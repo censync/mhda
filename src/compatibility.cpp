@@ -14,6 +14,12 @@ struct network_compat {
     std::unordered_set<derivation_type> derivations;
     algorithm default_algorithm;
     format    default_format;
+    // derivation_algorithm binds a derivation type to the one algorithm it
+    // derives on this network; unbound types take any listed algorithm.
+    std::unordered_map<derivation_type, algorithm> derivation_algorithm = {};
+    // derivation_formats binds a derivation type to the formats its purpose
+    // defines, checked when a format is resolved; unbound types take any.
+    std::unordered_map<derivation_type, std::unordered_set<format>> derivation_formats = {};
 };
 
 const std::unordered_map<network_type, network_compat>& matrix() {
@@ -31,6 +37,15 @@ const std::unordered_map<network_type, network_compat>& matrix() {
              derivation_type::bip86},
             algorithm::secp256k1,
             format{},  // no default — multiple legitimate scripts
+            {},
+            // The purpose defines the script, so an explicit format must
+            // match it.
+            {
+                {derivation_type::bip44, {format::p2pkh}},
+                {derivation_type::bip49, {format::p2sh}},
+                {derivation_type::bip84, {format::p2wpkh, format::bech32}},
+                {derivation_type::bip86, {format::p2tr, format::bech32m}},
+            },
         });
         // EthereumVM
         m.emplace(network_type::ethereum_vm, network_compat{
@@ -95,6 +110,8 @@ const std::unordered_map<network_type, network_compat>& matrix() {
             {derivation_type::slip10, derivation_type::bip44},
             algorithm::ed25519,
             format::hex,
+            {{derivation_type::slip10, algorithm::ed25519},
+             {derivation_type::bip44, algorithm::secp256k1}},
         });
         // Aptos
         m.emplace(network_type::aptos, network_compat{
@@ -103,6 +120,8 @@ const std::unordered_map<network_type, network_compat>& matrix() {
             {derivation_type::slip10, derivation_type::bip44},
             algorithm::ed25519,
             format::hex,
+            {{derivation_type::slip10, algorithm::ed25519},
+             {derivation_type::bip44, algorithm::secp256k1}},
         });
         // Sui
         m.emplace(network_type::sui, network_compat{
@@ -111,6 +130,9 @@ const std::unordered_map<network_type, network_compat>& matrix() {
             {derivation_type::slip10, derivation_type::bip54, derivation_type::bip74},
             algorithm::ed25519,
             format::hex,
+            {{derivation_type::slip10, algorithm::ed25519},
+             {derivation_type::bip54, algorithm::secp256k1},
+             {derivation_type::bip74, algorithm::secp256r1}},
         });
         // Cardano
         m.emplace(network_type::cardano, network_compat{
@@ -169,6 +191,22 @@ bool network_allows_format(const network_type& nt, const format& fmt) {
     auto it = matrix().find(nt);
     if (it == matrix().end()) return false;
     return it->second.formats.find(fmt) != it->second.formats.end();
+}
+
+algorithm derivation_algorithm(const network_type& nt, const derivation_type& dt) {
+    auto it = matrix().find(nt);
+    if (it == matrix().end()) return algorithm{};
+    auto bound = it->second.derivation_algorithm.find(dt);
+    if (bound == it->second.derivation_algorithm.end()) return algorithm{};
+    return bound->second;
+}
+
+bool derivation_allows_format(const network_type& nt, const derivation_type& dt, const format& fmt) {
+    auto it = matrix().find(nt);
+    if (it == matrix().end()) return true;
+    auto bound = it->second.derivation_formats.find(dt);
+    if (bound == it->second.derivation_formats.end()) return true;
+    return bound->second.find(fmt) != bound->second.end();
 }
 
 bool network_allows_derivation(const network_type& nt, const derivation_type& dt) {

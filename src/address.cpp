@@ -283,12 +283,44 @@ void address::validate() const {
     }
 
     // ROOT (no derivation path) is always permitted.
-    if (path_ && !path_->type().empty() && path_->type() != derivation_type::root) {
-        if (!detail::network_allows_derivation(nt, path_->type())) {
-            throw parse_error(error_code::incompatible,
-                              std::string{"derivation \""} + path_->type().str() +
-                              "\" not allowed for network \"" + nt.str() + "\"");
+    if (!path_ || path_->type().empty() || path_->type() == derivation_type::root) return;
+    const derivation_type& dt = path_->type();
+    if (!detail::network_allows_derivation(nt, dt)) {
+        throw parse_error(error_code::incompatible,
+                          std::string{"derivation \""} + dt.str() +
+                          "\" not allowed for network \"" + nt.str() + "\"");
+    }
+    const algorithm want = detail::derivation_algorithm(nt, dt);
+    if (!want.empty() && want != algo) {
+        throw parse_error(error_code::incompatible,
+                          std::string{"derivation \""} + dt.str() + "\" derives \"" + want.str() +
+                          "\" keys on network \"" + nt.str() + "\", not \"" + algo.str() + "\"");
+    }
+    if (!fmt.empty() && !detail::derivation_allows_format(nt, dt, fmt)) {
+        throw parse_error(error_code::incompatible,
+                          std::string{"format \""} + fmt.str() +
+                          "\" does not match the purpose of derivation \"" + dt.str() +
+                          "\" on network \"" + nt.str() + "\"");
+    }
+    // SLIP-10 derives ed25519 keys through hardened levels only; CIP-1852
+    // (BIP32-Ed25519) is the one ed25519 scheme with soft derivation.
+    if (algo == algorithm::ed25519 && dt != derivation_type::cip1852) {
+        const auto& lvls = path_->levels();
+        for (std::size_t i = 0; i < lvls.size(); ++i) {
+            if (!lvls[i].is_hardened) {
+                throw parse_error(error_code::incompatible,
+                                  "ed25519 derives hardened levels only, level " +
+                                      std::to_string(i) + " of \"" + path_->str() +
+                                      "\" is not hardened");
+            }
         }
+    }
+    // On Cosmos, bip44 with coin 118' is the cip11 path under another name;
+    // strict mode keeps the one spelling.
+    if (nt == network_type::cosmos && dt == derivation_type::bip44 &&
+        path_->coin() == coins::atom) {
+        throw parse_error(error_code::incompatible,
+                          "\"bip44\" with coin 118' is the cip11 path, use dt:cip11");
     }
 }
 

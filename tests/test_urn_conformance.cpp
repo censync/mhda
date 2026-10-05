@@ -28,6 +28,7 @@ const std::map<std::string, error_code>& conformance_errors() {
         {"invalid_algorithm",       error_code::invalid_algorithm},
         {"invalid_format",          error_code::invalid_format},
         {"invalid_value",           error_code::invalid_value},
+        {"incompatible",            error_code::incompatible},
     };
     return m;
 }
@@ -50,7 +51,7 @@ TEST_CASE("URN conformance table shared with go-mhda") {
         std::string verdict, kind, a, b, extra;
         fields >> verdict >> kind >> a >> b >> extra;
         const std::string where = "urn_conformance.txt:" + std::to_string(line) + ": " + text;
-        if (!extra.empty() || b.empty() || (kind != "urn" && kind != "nss") ||
+        if (!extra.empty() || b.empty() || (kind != "urn" && kind != "nss" && kind != "strict") ||
             (verdict != "accept" && verdict != "refuse")) {
             mhda_failures.push_back({__FILE__, __LINE__, "malformed row, " + where});
             return;
@@ -69,7 +70,9 @@ TEST_CASE("URN conformance table shared with go-mhda") {
         }
 
         try {
-            const address addr = kind == "urn" ? parse_urn(input) : parse_nss(input);
+            const address addr = kind == "urn"    ? parse_urn(input)
+                               : kind == "strict" ? parse_urn_strict(input)
+                                                  : parse_nss(input);
             if (!accept) {
                 mhda_failures.push_back({__FILE__, __LINE__, "accepted, " + where});
             } else if (addr.str() != b) {
