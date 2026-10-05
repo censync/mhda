@@ -116,7 +116,15 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   shared verbatim with go-mhda (`testdata/dp_conformance.txt`) and run by
   both suites, standalone and inside a URN, so a path one implementation
   refuses, the other refuses too. The boundary test and the fuzz seed that
-  pinned `4294967295` now sit at the new bound; 145 test cases total.
+  pinned `4294967295` now sit at the new bound.
+- `tests/data/urn_conformance.txt`: a URN-level table shared verbatim with
+  go-mhda, run through `parse_urn` / `parse_nss` with the expected error
+  code, for the parser changes above.
+- `tests/test_static_init.cpp` uses the library from a global constructor
+  and a global destructor; hash digests are pinned at the SHA block and
+  padding boundaries (55 to 1000 bytes).
+- CI adds an ASan/UBSan job and a `-Werror` job with the README's warning
+  set, and runs with read-only permissions. 152 test cases total.
 
 ## [1.1.0] — 2026-07-04
 
