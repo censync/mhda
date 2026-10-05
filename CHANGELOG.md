@@ -4,6 +4,19 @@ All notable changes to this project will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-10-05
+
+### Fixed
+
+- **`charge_type` is 32 bits wide (was `std::uint8_t`).** The CIP-11 charge
+  and the CIP-1852 role accept any level index, but the parsed value was
+  truncated to a byte: `m/1852'/1815'/0'/256/0` parsed as role 0, so it
+  named the role-0 key, re-serialised as `m/1852'/1815'/0'/0/0`, and
+  `levels()` returned the truncated value. The full value is now kept in
+  `charge()`, `levels()` and `str()`. This changes the ABI of
+  `derivation_path` (its constructor, `charge()` and its layout); rebuild
+  dependants.
+
 ## [1.1.0] — 2026-07-04
 
 URN grammar 1.1, mirroring the go-mhda reference. The chain identity is now

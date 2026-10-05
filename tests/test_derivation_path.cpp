@@ -58,6 +58,30 @@ TEST_CASE("CIP-1852 levels exposed correctly") {
     for (std::size_t i = 0; i < want.size(); ++i) EXPECT_EQ(got[i], want[i]);
 }
 
+// The CIP-11 charge and the CIP-1852 role take any level index. A value above
+// 255 must keep its full width: truncated to a byte, role 256 would name the
+// role-0 key.
+TEST_CASE("CIP-11 charge and CIP-1852 role keep their full width") {
+    struct row { std::string urn; std::uint32_t want; };
+    std::vector<row> cases = {
+        {"urn:mhda:nt:cardano:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/256/0", 256},
+        {"urn:mhda:nt:cardano:ci:mainnet:dt:cip1852:dp:m/1852'/1815'/0'/2147483647/0", 2147483647},
+        {"urn:mhda:nt:cosmos:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/257/0", 257},
+        {"urn:mhda:nt:cosmos:ci:cosmoshub:dt:cip11:dp:m/44'/118'/0'/65536/0", 65536},
+    };
+    for (const auto& c : cases) {
+        auto addr = parse_urn_strict(c.urn);
+        EXPECT_EQ(addr.str(), c.urn);
+        EXPECT_EQ(std::uint32_t(addr.path()->charge()), c.want);
+        EXPECT_EQ(addr.path()->levels()[3], (address_index{c.want, false}));
+    }
+
+    const std::uint32_t role = 300;
+    derivation_path dp{derivation_type::cip1852, coins::ada, 0, charge_type(role),
+                       address_index{1, false}};
+    EXPECT_EQ(dp.str(), std::string{"m/1852'/1815'/0'/300/1"});
+}
+
 TEST_CASE("SLIP-10 mixed hardening round-trip") {
     const std::string urn = "urn:mhda:nt:evm:ci:mainnet:ct:0:dt:slip10:dp:m/44'/0'/0'/0/5";
     auto addr = parse_urn(urn);

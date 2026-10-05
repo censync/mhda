@@ -11,7 +11,11 @@
 namespace mhda {
 
 using account_index = std::uint32_t;
-using charge_type   = std::uint8_t;
+// charge_type is the level after the account: the change level of BIP-32 and
+// the BIP-44 family (0 external, 1 internal), the CIP-11 charge and the
+// CIP-1852 role. It is as wide as a level index: the CIP-11 charge and the
+// CIP-1852 role take any index.
+using charge_type   = std::uint32_t;
 
 constexpr charge_type charge_external = 0;
 constexpr charge_type charge_internal = 1;
