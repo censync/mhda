@@ -95,16 +95,21 @@ public:
     std::string str() const;
 
     // parse_path replaces the contents of this path with the result of parsing
-    // the given string under the path's current derivation type. Throws
-    // parse_error on failure. The derivation type must already be set (via
-    // construction or set_type); for ROOT, path must be empty.
+    // the given string under the path's current derivation type. The whole
+    // path is replaced, so nothing of a previous path survives; on failure it
+    // throws parse_error and leaves the path unchanged. The derivation type
+    // must already be set (via construction or set_type); for ROOT, path must
+    // be empty.
     void parse_path(std::string_view path);
 
     // set_type throws parse_error(invalid_derivation_type) for an
-    // unregistered type.
+    // unregistered type. A type other than the current one clears the path,
+    // which belongs to the old scheme: str() is empty until parse_path sets a
+    // new one. Setting the current type again keeps the path.
     void set_type(const derivation_type& dt);
 
 private:
+    void parse_fresh(std::string_view path);
     void rebuild_levels();
     void populate_shortcuts_from_levels();
     bool fixed_prefix(std::uint32_t& purpose, std::uint32_t& coin) const;

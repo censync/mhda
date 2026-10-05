@@ -22,8 +22,8 @@ address parse_address_from_components(const std::unordered_map<std::string, std:
         return it->second;
     };
 
-    addr.set_derivation_type(get(detail::comp_derivation_type));
-    addr.set_derivation_path(get(detail::comp_derivation_path));
+    addr.set_derivation(get(detail::comp_derivation_type),
+                        get(detail::comp_derivation_path));
     addr.set_address_algorithm(get(detail::comp_address_algorithm));
     addr.set_address_format(get(detail::comp_address_format));
     addr.set_address_prefix(get(detail::comp_address_prefix));

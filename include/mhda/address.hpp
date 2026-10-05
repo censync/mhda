@@ -71,6 +71,11 @@ public:
 
     // set_derivation_type sets the path's derivation type; an empty string
     // resolves to ROOT. Allocates a fresh derivation_path if none was attached.
+    // A type other than the current one drops the current path, which
+    // belongs to the old scheme: until set_derivation_path sets a new one
+    // the address has no path, its URN carries dt without dp, and validate /
+    // marshal_text throw parse_error(invalid_derivation_path). Setting the
+    // current type again keeps the path. Use set_derivation to change both.
     void set_derivation_type(std::string_view dt);
 
     // set_derivation_path validates and applies the textual path. A root
@@ -78,6 +83,11 @@ public:
     // other dp throws parse_error(invalid_derivation_path). Throws
     // parse_error.
     void set_derivation_path(std::string_view dp);
+
+    // set_derivation sets the derivation type and path together, as a parsed
+    // URN does: both are validated first, and the address changes only if
+    // both are valid. An empty dt means ROOT, which takes an empty dp.
+    void set_derivation(std::string_view dt, std::string_view dp);
 
     // set_coin_type sets the chain's optional coin-type metadata from a
     // decimal or "0x"-prefixed hex string. An empty string clears the
@@ -138,6 +148,10 @@ public:
     std::string nss_hash256() const;
 
 private:
+    // check_path_set throws parse_error(invalid_derivation_path) for a
+    // derivation type set without a path (see set_derivation_type).
+    void check_path_set() const;
+
     chain                          chain_;
     std::optional<derivation_path> path_;
     algorithm                      algorithm_;

@@ -249,10 +249,24 @@ void derivation_path::set_type(const derivation_type& dt) {
         throw parse_error(error_code::invalid_derivation_type,
                           std::string{"\""} + dt.str() + "\"");
     }
-    type_ = dt;
+    if (dt == type_) return;
+    // The old levels and shortcuts belong to the old scheme.
+    derivation_path fresh;
+    fresh.type_ = dt;
+    *this = std::move(fresh);
 }
 
 void derivation_path::parse_path(std::string_view path) {
+    // Parse into a fresh path and replace this one only on success: nothing
+    // of the previous path survives, and an error (bad_alloc included)
+    // leaves it unchanged.
+    derivation_path fresh;
+    fresh.type_ = type_;
+    fresh.parse_fresh(path);
+    *this = std::move(fresh);
+}
+
+void derivation_path::parse_fresh(std::string_view path) {
     if (!type_.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
                           std::string{"\""} + type_.str() + "\"");
@@ -445,7 +459,10 @@ std::string format_levels(const std::vector<address_index>& lvls) {
 }  // namespace
 
 std::string derivation_path::str() const {
-    if (type_ == derivation_type::root) return "";
+    // Root has no levels; a path whose type is set but which has none yet
+    // (none was parsed or constructed) is empty too, rather than the zero
+    // shortcuts of its type.
+    if (levels_.empty()) return "";
     if (type_ == derivation_type::slip10) return format_levels(levels_);
     if (type_ == derivation_type::bip32) {
         std::string out = "m/";

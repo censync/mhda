@@ -78,6 +78,19 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
 
 ### Fixed
 
+- **No stale or mixed derivation state.** `set_type` and
+  `address::set_derivation_type` changed the type and kept the old path, so
+  a bip44 address switched to zip32 serialised as
+  `dt:zip32:dp:m/32'/133'/3'/9`, a valid URN naming a key nobody gave, and
+  a SLIP-10 path parsed after it kept the BIP-44 coin, account and charge.
+  `set_derivation_type` followed by a failing `set_derivation_path` left
+  that mixed address behind, and a `bad_alloc` inside `parse_path` left
+  `str()` and `levels()` disagreeing. A new type now clears the path;
+  until one is set the URN carries `dt` without `dp` (and does not parse),
+  and `validate` / `marshal_text` throw `invalid_derivation_path`.
+  `parse_path` parses into a fresh path and replaces the old one only on
+  success. The new `address::set_derivation(dt, dp)` sets both at once and
+  changes nothing on error; the URN parser uses it. Mirrors go-mhda.
 - **`levels()` and `str()` cannot disagree.** `from_levels` kept any
   levels it was given while `str()` printed the type's template: a BIP-44
   path built from `49'/60'/0/0/0` printed `m/44'/60'/0'/0/0` but returned

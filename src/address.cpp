@@ -56,17 +56,32 @@ format address::resolved_format() const {
 void address::set_derivation_type(std::string_view dt) {
     auto trimmed = detail::trim(dt);
     auto lowered = detail::to_lower(trimmed);
+    derivation_type next = derivation_type::root;
+    if (!lowered.empty()) {
+        next = derivation_type{lowered};
+        if (!next.is_valid()) {
+            throw parse_error(error_code::invalid_derivation_type,
+                              std::string{"\""} + lowered + "\"");
+        }
+    }
     if (!path_) path_.emplace();
-    if (lowered.empty()) {
-        path_->set_type(derivation_type::root);
-        return;
+    path_->set_type(next);  // a new type drops the old path
+}
+
+void address::set_derivation(std::string_view dt, std::string_view dp) {
+    address scratch;
+    scratch.set_derivation_type(dt);
+    scratch.set_derivation_path(dp);
+    path_ = std::move(scratch.path_);
+}
+
+void address::check_path_set() const {
+    if (path_ && !path_->type().empty() && path_->type() != derivation_type::root &&
+        path_->levels().empty()) {
+        throw parse_error(error_code::invalid_derivation_path,
+                          std::string{"derivation type \""} + path_->type().str() +
+                              "\" is set without a path");
     }
-    derivation_type next{lowered};
-    if (!next.is_valid()) {
-        throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + lowered + "\"");
-    }
-    path_->set_type(next);
 }
 
 void address::set_derivation_path(std::string_view dp) {
@@ -178,11 +193,16 @@ std::string address::nss() const {
     }
 
     // Derivation domain — present when not ROOT and a non-empty type is set.
+    // A type set without a path yet is emitted without dp, so the URN fails
+    // to parse rather than name another key.
     if (path_ && !path_->type().empty() && path_->type() != derivation_type::root) {
         out += ":dt:";
         out += path_->type().str();
-        out += ":dp:";
-        out += path_->str();
+        const std::string p = path_->str();
+        if (!p.empty()) {
+            out += ":dp:";
+            out += p;
+        }
     }
 
     // Address-format metadata — emitted only when explicitly set.
@@ -225,6 +245,7 @@ std::string address::marshal_text() const {
     if (chain_.network().empty()) {
         throw parse_error(error_code::uninitialized_address);
     }
+    check_path_set();
     return str();
 }
 
@@ -237,6 +258,7 @@ void address::validate() const {
     if (nt.empty()) {
         throw parse_error(error_code::uninitialized_address);
     }
+    check_path_set();
     if (!detail::network_is_registered(nt)) {
         throw parse_error(error_code::incompatible,
                           std::string{"unknown network type \""} + nt.str() + "\"");
