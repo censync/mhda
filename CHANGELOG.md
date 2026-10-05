@@ -95,6 +95,21 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
 
 ### Fixed
 
+- **Embedding mhda leaves the parent build alone.** Added with
+  `add_subdirectory` or FetchContent, mhda forced `CMAKE_BUILD_TYPE=Release`
+  into the cache of a parent that had none (so the parent's own code was
+  built with `-O3 -DNDEBUG` and its asserts off), built its tests and
+  examples into the parent and added its install rules to the parent's
+  install. These now apply only to a top-level build; `MHDA_BUILD_TESTS`,
+  `MHDA_BUILD_EXAMPLES` and the new `MHDA_INSTALL` default to it.
+- **`BUILD_SHARED_LIBS=ON` produces a usable library.** The hidden-symbol
+  preset, without export macros, left `libmhda.so` with no mhda symbols
+  and every consumer failed to link. A shared mhda now exports its symbols
+  (`WINDOWS_EXPORT_ALL_SYMBOLS` for a DLL); a static one keeps them hidden.
+- **The installed package is complete.** `mhda::mhda` now requires
+  `cxx_std_17` publicly, so a consumer asking for C++14 is raised to C++17
+  instead of failing on `std::optional`, and the install include path
+  follows `CMAKE_INSTALL_INCLUDEDIR`.
 - **No stale or mixed derivation state.** `set_type` and
   `address::set_derivation_type` changed the type and kept the old path, so
   a bip44 address switched to zip32 serialised as
@@ -165,7 +180,9 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   and a global destructor; hash digests are pinned at the SHA block and
   padding boundaries (55 to 1000 bytes).
 - CI adds an ASan/UBSan job and a `-Werror` job with the README's warning
-  set, and runs with read-only permissions. 152 test cases total.
+  set, a shared-library job, and a packaging job that builds the
+  `find_package` and `add_subdirectory` consumers in `tests/cmake/`; it
+  runs with read-only permissions. 152 test cases total.
 
 ## [1.1.0] — 2026-07-04
 

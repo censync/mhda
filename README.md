@@ -57,8 +57,11 @@ ctest --test-dir build --output-on-failure
 ```
 
 The library target is `mhda::mhda`; public headers live under `include/mhda/`.
-Both options below are ON by default and can be disabled with
-`-DMHDA_BUILD_TESTS=OFF` / `-DMHDA_BUILD_EXAMPLES=OFF`.
+Built on its own, the project builds its tests and examples and generates
+install rules; embedded with `add_subdirectory` / FetchContent it builds only
+the library and leaves the parent's build type alone. `-DMHDA_BUILD_TESTS`,
+`-DMHDA_BUILD_EXAMPLES` and `-DMHDA_INSTALL` override either default, and
+`-DBUILD_SHARED_LIBS=ON` builds a shared library.
 
 ### Installing
 
@@ -66,8 +69,9 @@ Both options below are ON by default and can be disabled with
 cmake --install build --prefix /usr/local
 ```
 
-This installs `libmhda.a`, the `include/mhda/` headers and a
-`mhda::mhda` CMake export so downstream projects can:
+This installs the library, the `mhda/` headers under
+`CMAKE_INSTALL_INCLUDEDIR` and a `mhda::mhda` CMake export, which carries the
+C++17 requirement, so downstream projects can:
 
 ```cmake
 find_package(mhda REQUIRED)
@@ -85,6 +89,10 @@ FetchContent_Declare(mhda
 FetchContent_MakeAvailable(mhda)
 target_link_libraries(my_app PRIVATE mhda::mhda)
 ```
+
+Embedded this way, mhda adds only its library target: tests, examples and
+install rules stay off unless enabled, and it does not choose a build type
+for the parent.
 
 ## Quick start
 

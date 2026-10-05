@@ -39,6 +39,40 @@ jobs:
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: ctest --test-dir build --output-on-failure
 
+  shared:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # The two ways a project consumes mhda: an installed package found with
+  # find_package (from a project that asks for C++14), and add_subdirectory /
+  # FetchContent, which must leave the parent's build type and targets alone.
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and install
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMHDA_BUILD_TESTS=OFF -DMHDA_BUILD_EXAMPLES=OFF
+          cmake --build build --parallel
+          cmake --install build --prefix "$PWD/prefix"
+      - name: find_package consumer
+        run: |
+          cmake -S tests/cmake/find_package -B build-find-package -DCMAKE_PREFIX_PATH="$PWD/prefix"
+          cmake --build build-find-package
+          ./build-find-package/consumer
+      - name: add_subdirectory consumer
+        run: |
+          cmake -S tests/cmake/subdirectory -B build-subdirectory -DMHDA_SOURCE_DIR="$PWD"
+          cmake --build build-subdirectory
+          ./build-subdirectory/consumer
+
   # The warning set the README promises, as errors. Pinned to the GCC the
   # README lists as verified (Ubuntu 22.04, GCC 11): a newer compiler may add
   # warnings that need a deliberate look rather than a red build.
