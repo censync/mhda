@@ -6,8 +6,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.2.0] — 2026-10-05
 
-URNs accepted by 1.1 are refused now: a derivation path with a level index
-of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
+URNs and values accepted by 1.1 are refused now: see Changed. Code that
+builds addresses gets stricter constructors and setters. Mirrors go-mhda
+1.2.0.
 
 ### Changed
 
@@ -28,7 +29,15 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   `urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/4294967295`. The largest
   index is `2147483647`. The `ct` component is not a path level and keeps
   its 32-bit range.
-
+- **Fixed path levels are spelled exactly**, as in go-mhda. The purpose,
+  the fixed coin of `cip11` / `cip1852` / `zip32` and the `0`/`1` charge of
+  `bip32` and the BIP-44 family are literals in the Go reference's grammar;
+  the port compared their values only and so accepted a leading zero that
+  Go refuses (`m/044'/60'/0'/0/0`, `m/44'/60'/0'/00/0`,
+  `m/1852'/01815'/0'/0/0`). These now throw
+  `parse_error(invalid_derivation_path)`. Leading zeros in a variable level
+  (`m/44'/060'/0'/0/0`) are still accepted, as in Go, and dropped in the
+  canonical form.
 - **Programmatic values are validated like parsed input.** The network
   type, the chain id and the derivation type are written verbatim into
   every URN, and nothing checked them when set in code: a chain id
@@ -66,16 +75,6 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
 - **A `slip10` path has at most 255 levels**; a deeper one throws
   `parse_error(invalid_derivation_path)`. BIP-32 serialises a key's depth
   in one byte, so no wallet can represent a deeper key.
-
-### Documentation
-
-- SPEC.md states that an explicit `dt:root` is folded away (root is the
-  default and has no path, so a root address has one canonical form and
-  one hash); the Algorand and TON notes no longer call `dt:root` the
-  canonical form. It also lists ZIP-32 as a known limitation: `zip32`
-  parses, but no network registers it, so strict parsing refuses it. Both
-  behaviours are unchanged and now pinned by tests.
-
 - **Strict validation refuses curve, purpose and format combinations no
   wallet can derive.** `validate` checked the algorithm, the format and the
   derivation type each on its own, so it accepted SLIP-10 ed25519 paths
@@ -92,14 +91,12 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   p2wpkh or bech32, `bip86` p2tr or bech32m); and Cosmos `bip44` with coin
   `118'`. A Bitcoin URN without `af` stays valid; SPEC.md no longer claims
   strict mode requires it. Lenient parsing is unchanged. Mirrors go-mhda.
-
 - **No whitespace inside the NSS.** Each value was trimmed, so
   `urn:mhda:nt:evm:ci: 1 :dt: bip44 :...` parsed like the URN without the
   spaces, against SPEC §6.1. ASCII whitespace is now trimmed only around the
   whole URN, around an NSS or chain key parsed on its own, and before a
   stripped r/q/f component (`ci:0 #frag` still parses); around a key or
   value it throws `parse_error(invalid_nss)`. Mirrors go-mhda.
-
 - **NSS bytes follow RFC 3986.** Keys and values accepted any printable
   ASCII, so `"`, `<`, `>`, `\`, `^`, `` ` ``, `{`, `|`, `}`, `[`, `]` and a
   raw `%` passed and were emitted in URNs that RFC 8141 does not allow. A
@@ -111,34 +108,27 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
 
 ### Fixed
 
-- **Embedding mhda leaves the parent build alone.** Added with
-  `add_subdirectory` or FetchContent, mhda forced `CMAKE_BUILD_TYPE=Release`
-  into the cache of a parent that had none (so the parent's own code was
-  built with `-O3 -DNDEBUG` and its asserts off), built its tests and
-  examples into the parent and added its install rules to the parent's
-  install. These now apply only to a top-level build; `MHDA_BUILD_TESTS`,
-  `MHDA_BUILD_EXAMPLES` and the new `MHDA_INSTALL` default to it.
-- **`BUILD_SHARED_LIBS=ON` produces a usable library.** The hidden-symbol
-  preset, without export macros, left `libmhda.so` with no mhda symbols
-  and every consumer failed to link. A shared mhda now exports its symbols
-  (`WINDOWS_EXPORT_ALL_SYMBOLS` for a DLL); a static one keeps them hidden.
-- **Error messages escape the input they quote.** `what()` copied the
-  caller's bytes verbatim, so a newline or an ANSI escape in a
-  client-supplied value (`set_wallet_id("x\n[INFO] ok")`) forged or
-  coloured lines in any log that recorded the exception. Quoted input is
-  now escaped like Go's `%q` (`\"`, `\\`, `\n`, `\r`, `\t`, `\xNN` for
-  other control and non-ASCII bytes), so `what()` is one line of printable
-  ASCII.
-- **The headers compile under `<windows.h>`.** Its `near` macro (empty, from
-  `minwindef.h`) turned `coins::near` into a syntax error in any
-  translation unit that included `<windows.h>` first. `coin_type.hpp` now
-  sets the macro aside for its list and restores it, and the new alias
-  `coins::near_protocol` (after `network_type::near_protocol`) stays usable
-  while the macro is in effect.
-- **The installed package is complete.** `mhda::mhda` now requires
-  `cxx_std_17` publicly, so a consumer asking for C++14 is raised to C++17
-  instead of failing on `std::optional`, and the install include path
-  follows `CMAKE_INSTALL_INCLUDEDIR`.
+- **`charge_type` is 32 bits wide (was `std::uint8_t`).** The CIP-11 charge
+  and the CIP-1852 role accept any level index, but the parsed value was
+  truncated to a byte: `m/1852'/1815'/0'/256/0` parsed as role 0, so it
+  named the role-0 key, re-serialised as `m/1852'/1815'/0'/0/0`, and
+  `levels()` returned the truncated value. The full value is now kept in
+  `charge()`, `levels()` and `str()`. This changes the ABI of
+  `derivation_path` (its constructor, `charge()` and its layout); rebuild
+  dependants.
+- **Static initialisation and destruction order.** The named constants
+  (`network_type::bitcoin`, `algorithm::secp256k1`, `format::hex`,
+  `derivation_type::root`, ...) were defined in the library's `.cpp` files
+  and built at start-up in an unspecified order relative to the consumer's
+  globals, and the lookup tables copied them on first use. A consumer
+  global that used one (a built-in chain table, a URN validated up front)
+  could run first: it saw empty values and left the tables wrong for the
+  whole process (`parse_urn_strict` then refused every network as
+  unknown). A global destructor that parsed at exit read destroyed tables
+  and crashed. The constants are now inline variables defined in the
+  public headers, so they are initialised before any global defined after
+  the include, and the lookup tables are allocated once and never
+  destroyed.
 - **No stale or mixed derivation state.** `set_type` and
   `address::set_derivation_type` changed the type and kept the old path, so
   a bip44 address switched to zip32 serialised as
@@ -163,37 +153,46 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   throw `parse_error(invalid_derivation_path)` otherwise. Two boundary
   tests that pinned the old results now expect the refusal. Mirrors
   go-mhda.
-- **Static initialisation and destruction order.** The named constants
-  (`network_type::bitcoin`, `algorithm::secp256k1`, `format::hex`,
-  `derivation_type::root`, ...) were defined in the library's `.cpp` files
-  and built at start-up in an unspecified order relative to the consumer's
-  globals, and the lookup tables copied them on first use. A consumer
-  global that used one (a built-in chain table, a URN validated up front)
-  could run first: it saw empty values and left the tables wrong for the
-  whole process (`parse_urn_strict` then refused every network as
-  unknown). A global destructor that parsed at exit read destroyed tables
-  and crashed. The constants are now inline variables defined in the
-  public headers, so they are initialised before any global defined after
-  the include, and the lookup tables are allocated once and never
-  destroyed.
-- **Fixed path levels are spelled exactly**, as in go-mhda. The purpose,
-  the fixed coin of `cip11` / `cip1852` / `zip32` and the `0`/`1` charge of
-  `bip32` and the BIP-44 family are literals in the Go reference's grammar;
-  the port compared their values only and so accepted a leading zero that
-  Go refuses (`m/044'/60'/0'/0/0`, `m/44'/60'/0'/00/0`,
-  `m/1852'/01815'/0'/0/0`). These now throw
-  `parse_error(invalid_derivation_path)`. Leading zeros in a variable level
-  (`m/44'/060'/0'/0/0`) are still accepted, as in Go, and dropped in the
-  canonical form.
+- **Error messages escape the input they quote.** `what()` copied the
+  caller's bytes verbatim, so a newline or an ANSI escape in a
+  client-supplied value (`set_wallet_id("x\n[INFO] ok")`) forged or
+  coloured lines in any log that recorded the exception. Quoted input is
+  now escaped like Go's `%q` (`\"`, `\\`, `\n`, `\r`, `\t`, `\xNN` for
+  other control and non-ASCII bytes), so `what()` is one line of printable
+  ASCII.
+- **The headers compile under `<windows.h>`.** Its `near` macro (empty, from
+  `minwindef.h`) turned `coins::near` into a syntax error in any
+  translation unit that included `<windows.h>` first. `coin_type.hpp` now
+  sets the macro aside for its list and restores it, and the new alias
+  `coins::near_protocol` (after `network_type::near_protocol`) stays usable
+  while the macro is in effect.
+- **Embedding mhda leaves the parent build alone.** Added with
+  `add_subdirectory` or FetchContent, mhda forced `CMAKE_BUILD_TYPE=Release`
+  into the cache of a parent that had none (so the parent's own code was
+  built with `-O3 -DNDEBUG` and its asserts off), built its tests and
+  examples into the parent and added its install rules to the parent's
+  install. These now apply only to a top-level build; `MHDA_BUILD_TESTS`,
+  `MHDA_BUILD_EXAMPLES` and the new `MHDA_INSTALL` default to it.
+- **`BUILD_SHARED_LIBS=ON` produces a usable library.** The hidden-symbol
+  preset, without export macros, left `libmhda.so` with no mhda symbols
+  and every consumer failed to link. A shared mhda now exports its symbols
+  (`WINDOWS_EXPORT_ALL_SYMBOLS` for a DLL); a static one keeps them hidden.
+- **The installed package is complete.** `mhda::mhda` now requires
+  `cxx_std_17` publicly, so a consumer asking for C++14 is raised to C++17
+  instead of failing on `std::optional`, and the install include path
+  follows `CMAKE_INSTALL_INCLUDEDIR`.
 
-- **`charge_type` is 32 bits wide (was `std::uint8_t`).** The CIP-11 charge
-  and the CIP-1852 role accept any level index, but the parsed value was
-  truncated to a byte: `m/1852'/1815'/0'/256/0` parsed as role 0, so it
-  named the role-0 key, re-serialised as `m/1852'/1815'/0'/0/0`, and
-  `levels()` returned the truncated value. The full value is now kept in
-  `charge()`, `levels()` and `str()`. This changes the ABI of
-  `derivation_path` (its constructor, `charge()` and its layout); rebuild
-  dependants.
+### Documentation
+
+- SPEC.md states that an explicit `dt:root` is folded away (root is the
+  default and has no path, so a root address has one canonical form and
+  one hash); the Algorand and TON notes no longer call `dt:root` the
+  canonical form. It also lists ZIP-32 as a known limitation: `zip32`
+  parses, but no network registers it, so strict parsing refuses it. Both
+  behaviours are unchanged and now pinned by tests.
+- SPEC.md notes that an EVM chain id is opaque: `ci:1`, `ci:0x1` and
+  `ci:01` are three chain keys for one chain, and a producer must keep to
+  one spelling.
 
 ### Tests
 
@@ -206,12 +205,14 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   go-mhda, run through `parse_urn` / `parse_nss` with the expected error
   code, for the parser changes above.
 - `tests/test_static_init.cpp` uses the library from a global constructor
-  and a global destructor; hash digests are pinned at the SHA block and
-  padding boundaries (55 to 1000 bytes).
+  and a global destructor, `tests/test_state.cpp` covers construction,
+  re-parsing and type changes, and `tests/test_windows_macros.cpp` compiles
+  the headers under the `<windows.h>` macros; hash digests are pinned at
+  the SHA block and padding boundaries (55 to 1000 bytes).
 - CI adds an ASan/UBSan job and a `-Werror` job with the README's warning
   set, a shared-library job, and a packaging job that builds the
   `find_package` and `add_subdirectory` consumers in `tests/cmake/`; it
-  runs with read-only permissions. 152 test cases total.
+  runs with read-only permissions. 160 test cases total.
 
 ## [1.1.0] — 2026-07-04
 

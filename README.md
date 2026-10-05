@@ -35,15 +35,16 @@ urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0:wt:web3:wi:5f2a8c31
 
 - Version: **1.2.0**
 - Standard: **C++17**, no external runtime dependencies
-- Tests: **152** unit + fuzz-equivalent stress cases (≈11 000 randomised
+- Tests: **160** unit + fuzz-equivalent stress cases (≈11 000 randomised
   iterations), passing under `-fsanitize=address,undefined,leak`
 - Compilers verified: GCC 11.4 (Ubuntu 22.04), Clang 14 (when libstdc++ is
-  available); the CI matrix runs Linux + macOS, Release + Debug, plus an
-  ASan/UBSan job and a `-Werror` job with the warning set below
+  available); the CI matrix runs Linux + macOS, Release + Debug, plus
+  ASan/UBSan, `-Werror` (the warning set below), shared-library and
+  packaging (`find_package` / `add_subdirectory`) jobs
 - Warning policy: clean under `-Wall -Wextra -Wpedantic -Wshadow -Wconversion
   -Wsign-conversion -Werror`
 - Binary stability is not yet guaranteed across minor versions; 1.2.0
-  refuses path indices of 2^31 or more and widens `charge_type` (see
+  tightens the URN grammar and strict validation and changes the ABI (see
   [CHANGELOG.md](./CHANGELOG.md))
 
 ## Building
@@ -169,6 +170,7 @@ A runnable version is in [`examples/basic.cpp`](./examples/basic.cpp).
 | `mhda.ParseNSS`                   | `mhda::parse_nss`                            |
 | `mhda.ChainFromKey` / `FromNSS`   | `mhda::chain::from_key` / `from_nss`         |
 | `mhda.NewChain(nt, ci)`           | `mhda::chain{nt, ci}`                        |
+| `Chain.SetNetworkType` / `SetChainId` | `chain::set_network` / `set_chain_id` |
 | `Chain.SetCoinType` / `ClearCoinType` | `chain::set_coin` / `chain::clear_coin` |
 | `Chain.CoinType` + `HasCoinType`  | `chain::coin` (`std::optional<coin_type>`)   |
 | `mhda.ParseDerivationPath`        | `mhda::derivation_path::parse`               |
@@ -176,6 +178,7 @@ A runnable version is in [`examples/basic.cpp`](./examples/basic.cpp).
 | `Address.String()` / `NSS()`      | `address::str` / `address::nss`              |
 | `Address.WalletType` / `WalletId` | `address::wallet_type` / `wallet_id`         |
 | `Address.SetWalletType` / `SetWalletId` | `address::set_wallet_type` / `set_wallet_id` |
+| `Address.SetDerivation(dt, dp)`   | `address::set_derivation(dt, dp)`            |
 | `Address.MarshalText`             | `address::marshal_text`                      |
 | `Address.UnmarshalText`           | `address::unmarshal_text`                    |
 | `Address.Hash` / `Hash256`        | `address::hash` / `hash256`                  |
@@ -227,7 +230,7 @@ Mirrors the [SPEC §8](./SPEC.md#8-concurrency) contract.
 
 ## Testing & validation
 
-- 152 unit + fuzz-equivalent test cases.
+- 160 unit + fuzz-equivalent test cases.
 - Fuzz harness runs ≈11 000 randomised mutations of the historical Go-fuzz
   seed corpus per execution (URN, NSS and derivation-path entry points).
   Contracts verified: no exception other than `parse_error`/`std::invalid_argument`,

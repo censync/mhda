@@ -189,7 +189,10 @@ strict validation: `bip44` p2pkh, `bip49` p2sh, `bip84` p2wpkh or bech32,
 
 #### Ethereum and EVM clones (`evm`)
 Single canonical format (hex). Chain ID typically a numeric chain ID such as
-`1`, `0xa86a`, `0x10`.
+`1`, `0xa86a`, `0x10`. The chain id is opaque: MHDA does not canonicalise
+it, so `ci:1`, `ci:0x1` and `ci:01` are three different chain keys (and
+hashes) for one chain. Chain keys compare as strings; a producer must keep to
+one spelling for a chain (the EIP-155 decimal form is the usual choice).
 
 #### Avalanche (`avalanche`)
 C-Chain uses hex (EVM-compatible); X/P-Chain use bech32 with HRPs `X-avax`,
@@ -548,7 +551,9 @@ This automatically provides:
 - Any framework that consults `TextMarshaler` for value serialisation.
 
 `MarshalText` returns the canonical URN form. `UnmarshalText` accepts any
-valid input (lenient mode).
+valid input (lenient mode). `MarshalText` has a value receiver, so an
+`Address` held by value (a struct field, a map value) encodes as its URN as
+well; a nil `*Address` is encoded by the codec itself (JSON `null`).
 
 A `database/sql` adapter is not currently provided; callers can wrap
 `MarshalText`/`UnmarshalText` in their own `driver.Valuer` / `sql.Scanner`.
