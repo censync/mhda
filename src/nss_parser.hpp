@@ -42,7 +42,9 @@ bool is_known_component(std::string_view key) noexcept;
 // (it would drop the component silently), a duplicate known key, and a key
 // or value with anything outside printable ASCII (0x21–0x7E: control bytes,
 // whitespace of any kind, non-ASCII bytes). Values are ASCII-trimmed before
-// the checks. Mirrors go-mhda's parseNSS.
+// the checks. '?' and '#' anywhere in the NSS throw parse_error(invalid_nss):
+// parse_urn strips the RFC 8141 r/q/f components first, and an NSS parsed on
+// its own must not carry them. Mirrors go-mhda's parseNSS.
 //
 // Values may not contain ':'; this holds for every component currently
 // defined.

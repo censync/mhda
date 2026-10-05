@@ -161,14 +161,24 @@ TEST_CASE("FuzzParseURN: no panic, idempotent on success") {
     }
 }
 
-TEST_CASE("FuzzParseNSS: no panic, no half-state on success") {
+TEST_CASE("FuzzParseNSS: no panic, emitted URN re-parses to itself") {
     std::mt19937_64 rng(0xDECADEULL);
     constexpr int kIterations = 4000;
     auto check = [&](const std::string& src) {
         try {
             auto addr = parse_nss(src);
-            (void)addr.str();
-            (void)addr.nss();
+            const std::string once = addr.str();
+            if (once != std::string{kPrefix} + addr.nss()) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"str() is not the prefix plus nss(): "} + once});
+                return;
+            }
+            auto twice = parse_urn(once);
+            if (twice.str() != once) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"not idempotent: once="} + once
+                        + " twice=" + twice.str() + " input=" + src});
+            }
         } catch (const parse_error&) {
             // Rejection is fine.
         } catch (const std::exception& e) {
@@ -186,6 +196,8 @@ TEST_CASE("FuzzParseNSS: no panic, no half-state on success") {
     const std::vector<std::string> bare_seeds = {
         "", "n", "nt", "nt:", "nt:evm", "nt:evm:ci:1:ct:60", "nt:evm:ci:1",
         "nt:evm:ci:1:wt:web3:wi:5f2a8c31",
+        "nt:evm:ci:1?=q:dt:bip44:dp:m/44'/60'/0'/0/0",
+        "nt:evm:ci:1:wi:a#b",
     };
     for (const auto& s : bare_seeds) check(s);
     for (int i = 0; i < kIterations; ++i) {

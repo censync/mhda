@@ -32,6 +32,14 @@ bool is_known_component(std::string_view key) noexcept {
 std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss) {
     std::unordered_map<std::string, std::string> out;
     if (nss.empty()) return out;
+    // '?' and '#' open the RFC 8141 r/q/f components. parse_urn strips them
+    // before the NSS reaches this parser; an NSS that still carries one
+    // (parse_nss, chain::from_nss, chain::from_key) is rejected, since the
+    // URN emitted from it would be truncated at that byte on the next parse.
+    if (const auto i = nss.find_first_of("?#"); i != std::string_view::npos) {
+        throw parse_error(error_code::invalid_nss,
+                          std::string{"'"} + nss[i] + "' inside the NSS");
+    }
     auto parts = split(nss, ':');
     if (parts.size() % 2 != 0) {
         throw parse_error(error_code::invalid_nss,

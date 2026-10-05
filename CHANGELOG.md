@@ -57,6 +57,12 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   a known key only by case, a dangling token, a trailing `:` and an empty
   key throw `parse_error(invalid_nss)`. `chain::from_key` reports a
   dangling token as `invalid_chain_key`, as before.
+- **`parse_nss`, `chain::from_nss` and `chain::from_key` refuse `?` and
+  `#`** with `parse_error(invalid_nss)`. `parse_urn` strips the RFC 8141
+  r/q/f components before parsing, but an NSS given on its own kept the
+  byte in a value, so the URN emitted from it was truncated on the next
+  parse (`nt:evm:ci:1:x#y:z` was accepted). The NSS fuzz test now checks
+  that the emitted URN re-parses to itself.
 
 ### Fixed
 
