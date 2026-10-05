@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <limits>
+#include <string>
+
+#include "mhda/error.hpp"
 
 namespace mhda {
 namespace detail {
@@ -49,6 +52,17 @@ bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept {
     if (value > std::numeric_limits<std::uint32_t>::max()) return false;
     out = std::uint32_t(value);
     return true;
+}
+
+void validate_free_form_value(std::string_view component, std::string_view v) {
+    for (char c : v) {
+        const auto b = static_cast<unsigned char>(c);
+        if (b < 0x21 || b > 0x7e || c == ':' || c == '?' || c == '#') {
+            throw parse_error(error_code::invalid_value,
+                              std::string{"\""} + std::string{v} + "\" for \"" +
+                                  std::string{component} + "\"");
+        }
+    }
 }
 
 bool parse_uint31_dec(std::string_view s, std::uint32_t& out) noexcept {

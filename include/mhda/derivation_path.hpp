@@ -51,6 +51,9 @@ public:
     // Construct a path for a fixed-shape BIP-family scheme. SLIP-10 cannot be
     // reconstructed from the five shortcut fields; passing it here throws
     // std::invalid_argument (mirroring the panic in the Go implementation).
+    // An unregistered derivation type throws
+    // parse_error(invalid_derivation_type): the type is written verbatim
+    // into the URN.
     derivation_path(derivation_type dt,
                     coin_type coin,
                     account_index account,
@@ -59,7 +62,8 @@ public:
 
     // Construct a path from an explicit sequence of levels. Required for
     // SLIP-10 and a convenient alternative for any scheme. For fixed-shape
-    // schemes the shortcut fields are populated from the levels.
+    // schemes the shortcut fields are populated from the levels. An
+    // unregistered derivation type throws parse_error(invalid_derivation_type).
     static derivation_path from_levels(derivation_type dt,
                                        std::vector<address_index> levels);
 
@@ -88,6 +92,8 @@ public:
     // construction or set_type); for ROOT, path must be empty.
     void parse_path(std::string_view path);
 
+    // set_type throws parse_error(invalid_derivation_type) for an
+    // unregistered type.
     void set_type(const derivation_type& dt);
 
 private:

@@ -22,24 +22,6 @@ void append_uint32(std::string& out, std::uint32_t v) {
     for (int i = n - 1; i >= 0; --i) out.push_back(tmp[i]);
 }
 
-// validate_free_form_value guards the case-preserving free-form components
-// (ap/as/wt/wi) against characters that would corrupt the serialised NSS:
-// the ':' component separator would inject foreign components on re-parse,
-// '?' / '#' would truncate the URN at the RFC 8141 r/q/f delimiters, and
-// anything outside printable ASCII (whitespace of any kind, control bytes,
-// Unicode) cannot appear in a conforming NSS at all. Mirrors the Go
-// reference's validateFreeFormValue.
-void validate_free_form_value(std::string_view component, std::string_view v) {
-    for (char c : v) {
-        const auto b = static_cast<unsigned char>(c);
-        if (b < 0x21 || b > 0x7e || c == ':' || c == '?' || c == '#') {
-            throw parse_error(error_code::invalid_value,
-                              std::string{"\""} + std::string{v} + "\" for \"" +
-                                  std::string{component} + "\"");
-        }
-    }
-}
-
 }  // namespace
 
 address::address(chain c,
@@ -143,25 +125,25 @@ void address::set_address_format(std::string_view af) {
 
 void address::set_address_prefix(std::string_view ap) {
     auto trimmed = detail::trim(ap);
-    validate_free_form_value(detail::comp_address_prefix, trimmed);
+    detail::validate_free_form_value(detail::comp_address_prefix, trimmed);
     prefix_ = std::string{trimmed};
 }
 
 void address::set_address_suffix(std::string_view as) {
     auto trimmed = detail::trim(as);
-    validate_free_form_value(detail::comp_address_suffix, trimmed);
+    detail::validate_free_form_value(detail::comp_address_suffix, trimmed);
     suffix_ = std::string{trimmed};
 }
 
 void address::set_wallet_type(std::string_view wt) {
     auto trimmed = detail::trim(wt);
-    validate_free_form_value(detail::comp_wallet_type, trimmed);
+    detail::validate_free_form_value(detail::comp_wallet_type, trimmed);
     wallet_type_ = std::string{trimmed};
 }
 
 void address::set_wallet_id(std::string_view wi) {
     auto trimmed = detail::trim(wi);
-    validate_free_form_value(detail::comp_wallet_id, trimmed);
+    detail::validate_free_form_value(detail::comp_wallet_id, trimmed);
     wallet_id_ = std::string{trimmed};
 }
 

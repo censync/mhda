@@ -29,6 +29,19 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   index is `2147483647`. The `ct` component is not a path level and keeps
   its 32-bit range.
 
+- **Programmatic values are validated like parsed input.** The network
+  type, the chain id and the derivation type are written verbatim into
+  every URN, and nothing checked them when set in code: a chain id
+  `1:dt:bip44:dp:m/44'/60'/0'/0/666` on a root address produced a URN that
+  re-parsed as a bip44 path. The `chain` constructor, `set_network` and
+  `set_chain_id` now require a registered network type and a non-empty
+  chain id of printable ASCII without `:`, `?` or `#` (ASCII-trimmed) and
+  throw `parse_error` (`invalid_network_type`, `missing_chain_id`,
+  `invalid_value`) otherwise, leaving the chain unchanged. The
+  `derivation_path` constructor, `from_levels` and `set_type` throw
+  `parse_error(invalid_derivation_type)` on an unregistered type. Mirrors
+  go-mhda.
+
 ### Fixed
 
 - **Static initialisation and destruction order.** The named constants

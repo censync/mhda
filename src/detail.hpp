@@ -92,6 +92,16 @@ inline std::vector<std::string_view> split(std::string_view s, char sep) {
 // the coin-type ("ct") parsing paths.
 bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept;
 
+// validate_free_form_value guards a value written verbatim into the NSS
+// (ap/as/wt/wi and the chain id) against characters that would corrupt it:
+// the ':' component separator would inject foreign components on re-parse,
+// '?' / '#' would truncate the URN at the RFC 8141 r/q/f delimiters, and
+// anything outside printable ASCII (whitespace of any kind, control bytes,
+// Unicode) cannot appear in a conforming NSS at all. Throws
+// parse_error(invalid_value). Mirrors the Go reference's
+// validateFreeFormValue.
+void validate_free_form_value(std::string_view component, std::string_view v);
+
 // parse_uint31_dec parses a strictly decimal value below 2^31. Used by
 // per-level derivation-path parsing: a BIP-32 child number keeps the hardened
 // flag in its top bit (n' is 2^31+n), so a level index has 31 bits. Mirrors

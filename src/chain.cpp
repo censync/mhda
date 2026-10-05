@@ -61,6 +61,28 @@ chain build_chain_from_components(const std::unordered_map<std::string, std::str
 }
 }  // namespace internal
 
+chain::chain(network_type nt, chain_id ci) {
+    set_network(std::move(nt));
+    set_chain_id(std::move(ci));
+}
+
+void chain::set_network(network_type nt) {
+    if (!nt.is_valid()) {
+        throw parse_error(error_code::invalid_network_type,
+                          std::string{"\""} + nt.str() + "\"");
+    }
+    network_ = std::move(nt);
+}
+
+void chain::set_chain_id(chain_id ci) {
+    const auto trimmed = detail::trim(ci);
+    if (trimmed.empty()) {
+        throw parse_error(error_code::missing_chain_id);
+    }
+    detail::validate_free_form_value(detail::comp_chain_id, trimmed);
+    chain_id_ = std::string{trimmed};
+}
+
 chain chain::from_nss(std::string_view nss) {
     auto components = detail::parse_nss_map(nss);
     if (components.find(std::string{detail::comp_network_type}) == components.end()) {

@@ -53,14 +53,14 @@ TEST_CASE("unmarshal_text rejection leaves receiver intact") {
     EXPECT_EQ(a.str(), before);  // strong exception guarantee
 }
 
-TEST_CASE("validate rejects unknown network even with valid algo/fmt") {
-    address a;
+TEST_CASE("an unregistered network cannot be set on a chain") {
+    // set_network validates, so an address can no longer carry an
+    // unregistered network for validate() to meet.
     chain c;
-    c.set_network(network_type{"polkadot"});  // not registered
-    c.set_coin(354);
-    c.set_chain_id("mainnet");
-    a = address{c, std::nullopt};
-    EXPECT_THROW_CODE(a.validate(), error_code::incompatible);
+    EXPECT_THROW_CODE(c.set_network(network_type{"polkadot"}), error_code::invalid_network_type);
+    EXPECT_TRUE(c.network().empty());
+    address a{c, std::nullopt};
+    EXPECT_THROW_CODE(a.validate(), error_code::uninitialized_address);
 }
 
 TEST_CASE("validate of zero-value address yields uninitialized_address") {

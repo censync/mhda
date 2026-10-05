@@ -171,3 +171,56 @@ TEST_CASE("explicit ct:0 round-trips at URN level") {
     if (addr.get_chain().coin()) EXPECT_EQ(*addr.get_chain().coin(), 0u);
     EXPECT_EQ(addr.str(), in);
 }
+
+// The network type, the chain id and the derivation type are written
+// verbatim into every URN. A value carrying ':' would inject components on
+// re-parse (a root address whose URN reads back as a bip44 path), '?' / '#'
+// would truncate it. Constructors and setters throw parse_error on such a
+// value; a failed setter keeps the old value. Mirrors go-mhda.
+TEST_CASE("programmatic values cannot inject components") {
+    struct row { network_type nt; std::string ci; error_code want; };
+    const std::vector<row> rows = {
+        {network_type::ethereum_vm, "1:dt:bip44:dp:m/44'/60'/0'/0/666", error_code::invalid_value},
+        {network_type::ethereum_vm, "1:wi:attacker", error_code::invalid_value},
+        {network_type::ethereum_vm, "1?=q", error_code::invalid_value},
+        {network_type::ethereum_vm, "1#f", error_code::invalid_value},
+        {network_type::ethereum_vm, "a b", error_code::invalid_value},
+        {network_type::ethereum_vm, "\xc2\xa0" "1", error_code::invalid_value},
+        {network_type::ethereum_vm, "", error_code::missing_chain_id},
+        {network_type::ethereum_vm, " \t", error_code::missing_chain_id},
+        {network_type{"evm:ci:1:dt:bip44"}, "1", error_code::invalid_network_type},
+        {network_type{"polkadot"}, "1", error_code::invalid_network_type},
+        {network_type{"EVM"}, "1", error_code::invalid_network_type},
+        {network_type{}, "1", error_code::invalid_network_type},
+    };
+    for (const auto& r : rows) {
+        EXPECT_THROW_CODE((chain{r.nt, r.ci}), r.want);
+    }
+
+    const chain trimmed{network_type::ethereum_vm, " 0x1 "};
+    EXPECT_EQ(trimmed.id(), std::string{"0x1"});
+
+    chain ch{network_type::ethereum_vm, "1"};
+    EXPECT_THROW_CODE(ch.set_chain_id("1:dt:bip44"), error_code::invalid_value);
+    EXPECT_THROW_CODE(ch.set_chain_id(""), error_code::missing_chain_id);
+    EXPECT_THROW_CODE(ch.set_network(network_type{"evm:x"}), error_code::invalid_network_type);
+    EXPECT_EQ(ch.str(), std::string{"nt:evm:ci:1"});
+    EXPECT_NO_THROW(ch.set_chain_id("56"));
+    EXPECT_NO_THROW(ch.set_network(network_type::bitcoin));
+    EXPECT_EQ(ch.str(), std::string{"nt:bitcoin:ci:56"});
+
+    // The mutable accessor goes through the same setters.
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1");
+    EXPECT_THROW_CODE(a.get_chain().set_chain_id("1:dt:bip44:dp:m/44'/60'/0'/0/666"),
+                      error_code::invalid_value);
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1"});
+
+    for (const char* dt : {"bip44:wi:x", "bogus", "BIP44", ""}) {
+        EXPECT_THROW_CODE((derivation_path{derivation_type{dt}, 60, 0, 0, address_index{}}),
+                          error_code::invalid_derivation_type);
+        EXPECT_THROW_CODE(derivation_path::from_levels(derivation_type{dt}, {}),
+                          error_code::invalid_derivation_type);
+        derivation_path p;
+        EXPECT_THROW_CODE(p.set_type(derivation_type{dt}), error_code::invalid_derivation_type);
+    }
+}

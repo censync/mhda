@@ -188,6 +188,10 @@ derivation_path::derivation_path(derivation_type dt,
       account_(account),
       charge_(charge),
       index_(index) {
+    if (!type_.is_valid()) {
+        throw parse_error(error_code::invalid_derivation_type,
+                          std::string{"\""} + type_.str() + "\"");
+    }
     if (type_ == derivation_type::slip10) {
         throw std::invalid_argument(
             "mhda: NewDerivationPath cannot construct SLIP10 paths; use derivation_path::from_levels");
@@ -198,6 +202,10 @@ derivation_path::derivation_path(derivation_type dt,
 
 derivation_path derivation_path::from_levels(derivation_type dt,
                                              std::vector<address_index> levels) {
+    if (!dt.is_valid()) {
+        throw parse_error(error_code::invalid_derivation_type,
+                          std::string{"\""} + dt.str() + "\"");
+    }
     derivation_path dp;
     dp.type_ = std::move(dt);
     dp.levels_ = std::move(levels);
@@ -217,6 +225,10 @@ derivation_path derivation_path::parse(derivation_type dt, std::string_view path
 }
 
 void derivation_path::set_type(const derivation_type& dt) {
+    if (!dt.is_valid()) {
+        throw parse_error(error_code::invalid_derivation_type,
+                          std::string{"\""} + dt.str() + "\"");
+    }
     type_ = dt;
 }
 
