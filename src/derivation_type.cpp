@@ -29,7 +29,7 @@ bool derivation_type::is_valid() const noexcept {
 derivation_type derivation_type_from_string(std::string_view s) {
     auto key = detail::normalize(s);
     if (dt_index().find(key) == dt_index().end()) {
-        throw parse_error(error_code::invalid_derivation_type, std::string{"\""} + std::string{s} + "\"");
+        throw parse_error(error_code::invalid_derivation_type, detail::quote(s));
     }
     return derivation_type{std::move(key)};
 }

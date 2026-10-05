@@ -61,7 +61,7 @@ void address::set_derivation_type(std::string_view dt) {
         next = derivation_type{lowered};
         if (!next.is_valid()) {
             throw parse_error(error_code::invalid_derivation_type,
-                              std::string{"\""} + lowered + "\"");
+                              detail::quote(lowered));
         }
     }
     if (!path_) path_.emplace();
@@ -93,8 +93,7 @@ void address::set_derivation_path(std::string_view dp) {
         // than the path it spells out. Mirrors go-mhda.
         if (!trimmed.empty()) {
             throw parse_error(error_code::invalid_derivation_path,
-                              std::string{"root derivation must have empty path, got \""} +
-                                  std::string{trimmed} + "\"");
+                              std::string{"root derivation must have empty path, got "} + detail::quote(trimmed));
         }
         return;
     }
@@ -111,7 +110,7 @@ void address::set_coin_type(std::string_view ct) {
     std::uint32_t v = 0;
     if (!detail::parse_uint32(trimmed, v)) {
         throw parse_error(error_code::invalid_coin_type,
-                          std::string{"\""} + std::string{trimmed} + "\"");
+                          detail::quote(trimmed));
     }
     chain_.set_coin(v);
 }
@@ -126,7 +125,7 @@ void address::set_address_algorithm(std::string_view aa) {
     algorithm next{lowered};
     if (!next.is_valid()) {
         throw parse_error(error_code::invalid_algorithm,
-                          std::string{"\""} + lowered + "\"");
+                          detail::quote(lowered));
     }
     algorithm_ = std::move(next);
 }
@@ -141,7 +140,7 @@ void address::set_address_format(std::string_view af) {
     format next{lowered};
     if (!next.is_valid()) {
         throw parse_error(error_code::invalid_format,
-                          std::string{"\""} + lowered + "\"");
+                          detail::quote(lowered));
     }
     format_ = std::move(next);
 }
@@ -261,13 +260,13 @@ void address::validate() const {
     check_path_set();
     if (!detail::network_is_registered(nt)) {
         throw parse_error(error_code::incompatible,
-                          std::string{"unknown network type \""} + nt.str() + "\"");
+                          std::string{"unknown network type "} + detail::quote(nt.str()));
     }
 
     auto algo = resolved_algorithm();
     if (algo.empty()) {
         throw parse_error(error_code::incompatible,
-                          std::string{"no algorithm resolved for network \""} + nt.str() + "\"");
+                          std::string{"no algorithm resolved for network "} + detail::quote(nt.str()));
     }
     if (!detail::network_allows_algorithm(nt, algo)) {
         throw parse_error(error_code::incompatible,

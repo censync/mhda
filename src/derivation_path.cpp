@@ -209,7 +209,7 @@ derivation_path::derivation_path(derivation_type dt,
       index_(index) {
     if (!type_.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + type_.str() + "\"");
+                          detail::quote(type_.str()));
     }
     if (type_ == derivation_type::slip10) {
         throw std::invalid_argument(
@@ -224,7 +224,7 @@ derivation_path derivation_path::from_levels(derivation_type dt,
                                              std::vector<address_index> levels) {
     if (!dt.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + dt.str() + "\"");
+                          detail::quote(dt.str()));
     }
     derivation_path dp;
     dp.type_ = std::move(dt);
@@ -236,7 +236,7 @@ derivation_path derivation_path::from_levels(derivation_type dt,
 derivation_path derivation_path::parse(derivation_type dt, std::string_view path) {
     if (!dt.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + dt.str() + "\"");
+                          detail::quote(dt.str()));
     }
     derivation_path dp;
     dp.type_ = std::move(dt);
@@ -247,7 +247,7 @@ derivation_path derivation_path::parse(derivation_type dt, std::string_view path
 void derivation_path::set_type(const derivation_type& dt) {
     if (!dt.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + dt.str() + "\"");
+                          detail::quote(dt.str()));
     }
     if (dt == type_) return;
     // The old levels and shortcuts belong to the old scheme.
@@ -269,13 +269,12 @@ void derivation_path::parse_path(std::string_view path) {
 void derivation_path::parse_fresh(std::string_view path) {
     if (!type_.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + type_.str() + "\"");
+                          detail::quote(type_.str()));
     }
     if (type_ == derivation_type::root) {
         if (!path.empty()) {
             throw parse_error(error_code::invalid_derivation_path,
-                              std::string{"root derivation must have empty path, got \""}
-                                  + std::string{path} + "\"");
+                              std::string{"root derivation must have empty path, got "} + detail::quote(path));
         }
         levels_.clear();
         has_index_ = false;
@@ -285,7 +284,7 @@ void derivation_path::parse_fresh(std::string_view path) {
     std::vector<raw_level> lvls;
     if (!parse_levels(path, lvls) || !validate_levels_for(type_, lvls)) {
         throw parse_error(error_code::invalid_derivation_path,
-                          std::string{"\""} + std::string{path} + "\"");
+                          detail::quote(path));
     }
 
     if (type_ == derivation_type::bip32) {
@@ -338,7 +337,7 @@ void derivation_path::parse_fresh(std::string_view path) {
         }
     } else {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + type_.str() + "\"");
+                          detail::quote(type_.str()));
     }
 
     rebuild_levels();

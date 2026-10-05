@@ -106,6 +106,13 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   preset, without export macros, left `libmhda.so` with no mhda symbols
   and every consumer failed to link. A shared mhda now exports its symbols
   (`WINDOWS_EXPORT_ALL_SYMBOLS` for a DLL); a static one keeps them hidden.
+- **Error messages escape the input they quote.** `what()` copied the
+  caller's bytes verbatim, so a newline or an ANSI escape in a
+  client-supplied value (`set_wallet_id("x\n[INFO] ok")`) forged or
+  coloured lines in any log that recorded the exception. Quoted input is
+  now escaped like Go's `%q` (`\"`, `\\`, `\n`, `\r`, `\t`, `\xNN` for
+  other control and non-ASCII bytes), so `what()` is one line of printable
+  ASCII.
 - **The headers compile under `<windows.h>`.** Its `near` macro (empty, from
   `minwindef.h`) turned `coins::near` into a syntax error in any
   translation unit that included `<windows.h>` first. `coin_type.hpp` now

@@ -25,7 +25,7 @@ chain build_chain(const std::unordered_map<std::string, std::string>& m) {
     network_type nt{nt_norm};
     if (!nt.is_valid()) {
         throw parse_error(error_code::invalid_network_type,
-                          std::string{"\""} + nt_norm + "\"");
+                          detail::quote(nt_norm));
     }
 
     auto ci_it = m.find(std::string{detail::comp_chain_id});
@@ -45,7 +45,7 @@ chain build_chain(const std::unordered_map<std::string, std::string>& m) {
         coin_type ct = 0;
         if (!detail::parse_uint32(ct_trim, ct)) {
             throw parse_error(error_code::invalid_coin_type,
-                              std::string{"\""} + std::string{ct_trim} + "\"");
+                              detail::quote(ct_trim));
         }
         out.set_coin(ct);
     }
@@ -69,7 +69,7 @@ chain::chain(network_type nt, chain_id ci) {
 void chain::set_network(network_type nt) {
     if (!nt.is_valid()) {
         throw parse_error(error_code::invalid_network_type,
-                          std::string{"\""} + nt.str() + "\"");
+                          detail::quote(nt.str()));
     }
     network_ = std::move(nt);
 }
@@ -99,8 +99,7 @@ chain chain::from_key(std::string_view key) {
     for (char c : trimmed) colons += c == ':';
     if (!trimmed.empty() && colons % 2 == 0) {
         throw parse_error(error_code::invalid_chain_key,
-                          std::string{"not a sequence of key:value pairs: \""} +
-                              std::string{trimmed} + "\"");
+                          std::string{"not a sequence of key:value pairs: "} + detail::quote(trimmed));
     }
     auto components = detail::parse_nss_map(trimmed);
     if (components.find(std::string{detail::comp_coin_type}) != components.end()) {
@@ -109,7 +108,7 @@ chain chain::from_key(std::string_view key) {
     for (const auto& kv : components) {
         if (kv.first != detail::comp_network_type && kv.first != detail::comp_chain_id) {
             throw parse_error(error_code::invalid_chain_key,
-                              std::string{"unexpected component \""} + kv.first + "\"");
+                              std::string{"unexpected component "} + detail::quote(kv.first));
         }
     }
     if (components.find(std::string{detail::comp_network_type}) == components.end()) {
@@ -121,8 +120,7 @@ chain chain::from_key(std::string_view key) {
     // are rejected, not silently normalised.
     if (out.str() != trimmed) {
         throw parse_error(error_code::invalid_chain_key,
-                          std::string{"not in canonical form: \""} +
-                              std::string{trimmed} + "\"");
+                          std::string{"not in canonical form: "} + detail::quote(trimmed));
     }
     return out;
 }

@@ -43,7 +43,7 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
     auto parts = split(nss, ':');
     if (parts.size() % 2 != 0) {
         throw parse_error(error_code::invalid_nss,
-                          std::string{"missing value for \""} + std::string{parts.back()} + "\"");
+                          std::string{"missing value for "} + quote(parts.back()));
     }
     for (std::size_t i = 0; i < parts.size(); i += 2) {
         const auto key = parts[i];
@@ -54,8 +54,7 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
             const auto b = static_cast<unsigned char>(c);
             if (b < 0x21 || b > 0x7e) {
                 throw parse_error(error_code::invalid_nss,
-                                  std::string{"non-ASCII or control byte in component key \""} +
-                                      std::string{key} + "\"");
+                                  std::string{"non-ASCII or control byte in component key "} + quote(key));
             }
         }
         // RFC 8141 NSS does not permit unescaped whitespace; trim ASCII
@@ -65,7 +64,7 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
         auto value = trim(parts[i + 1]);
         if (value.empty()) {
             throw parse_error(error_code::invalid_nss,
-                              std::string{"empty value for \""} + std::string{key} + "\"");
+                              std::string{"empty value for "} + quote(key));
         }
         // Everything that survives the trim must be printable ASCII (SPEC
         // §1.5) — interior whitespace, control bytes and Unicode spaces are
@@ -74,22 +73,20 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
             const auto b = static_cast<unsigned char>(c);
             if (b < 0x21 || b > 0x7e) {
                 throw parse_error(error_code::invalid_nss,
-                                  std::string{"non-ASCII or control byte in value for \""} +
-                                      std::string{key} + "\"");
+                                  std::string{"non-ASCII or control byte in value for "} + quote(key));
             }
         }
         if (!is_known_component(key)) {
             if (is_known_component(to_lower(key))) {
                 throw parse_error(error_code::invalid_nss,
-                                  std::string{"component key \""} + std::string{key} +
-                                      "\" must be lowercase");
+                                  "component key " + quote(key) + " must be lowercase");
             }
             continue;  // unknown component, skipped with its value
         }
         std::string key_str{key};
         if (out.count(key_str)) {
             throw parse_error(error_code::invalid_nss,
-                              std::string{"duplicate component \""} + key_str + "\"");
+                              std::string{"duplicate component "} + quote(key_str));
         }
         out.emplace(std::move(key_str), std::string{value});
     }

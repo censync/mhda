@@ -92,6 +92,12 @@ inline std::vector<std::string_view> split(std::string_view s, char sep) {
 // the coin-type ("ct") parsing paths.
 bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept;
 
+// quote returns s in double quotes for an error message, escaping like Go's
+// %q: '"' and '\\' get a backslash, \n \r \t their escapes, and every other
+// control or non-ASCII byte \xNN. The message stays one line of printable
+// ASCII, so input logged through what() cannot forge or colour log lines.
+std::string quote(std::string_view s);
+
 // validate_free_form_value guards a value written verbatim into the NSS
 // (ap/as/wt/wi and the chain id) against characters that would corrupt it:
 // the ':' component separator would inject foreign components on re-parse,

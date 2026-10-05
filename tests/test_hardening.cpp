@@ -240,3 +240,49 @@ TEST_CASE("zip32 has no network") {
         EXPECT_THROW_CODE(parse_urn_strict(urn), error_code::incompatible);
     }
 }
+
+// Error messages quote the offending input. A caller that logs what() must
+// not receive the input's raw bytes: a newline or an ANSI escape in a
+// client-supplied value would forge or colour log lines. Like Go's %q,
+// what() escapes quotes, backslashes, control and non-ASCII bytes.
+TEST_CASE("error messages escape the input they quote") {
+    const std::vector<std::function<void()>> calls = {
+        [] { address a; a.set_wallet_id("x\n[INFO] ok"); },
+        [] { address a; a.set_address_algorithm("r\x1b[31msa"); },
+        [] { address a{chain{network_type::ethereum_vm, "1"}, std::nullopt};
+             a.set_coin_type("6\x1b""0"); },
+        [] { (void)derivation_type_from_string("bip\n44"); },
+        [] { (void)derivation_path::parse(derivation_type::bip44, "m/44'\n/\"x\\"); },
+        [] { (void)derivation_path::parse(derivation_type{"bip\x7f"}, "m/0"); },
+        [] { (void)chain::from_key("nt:evm:ci:1:\x1b"); },
+        [] { (void)chain{network_type{"ev\nm"}, "1"}; },
+        [] { (void)parse_urn("urn:mhda:nt:evm:ci:1:dt:bip\xc2\xa0" "44:dp:m/0"); },
+    };
+    for (std::size_t i = 0; i < calls.size(); ++i) {
+        std::string what;
+        try {
+            calls[i]();
+        } catch (const parse_error& e) {
+            what = e.what();
+        }
+        if (what.empty()) {
+            mhda_failures.push_back({__FILE__, __LINE__,
+                "call " + std::to_string(i) + " did not throw parse_error"});
+            continue;
+        }
+        for (char c : what) {
+            const auto b = static_cast<unsigned char>(c);
+            if (b < 0x20 || b > 0x7e) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    "call " + std::to_string(i) + ": raw byte in what(): " + what});
+                break;
+            }
+        }
+    }
+    try {
+        address a;
+        a.set_wallet_id("x\n\"y\\");
+    } catch (const parse_error& e) {
+        EXPECT_TRUE(std::string{e.what()}.find(R"("x\n\"y\\")") != std::string::npos);
+    }
+}

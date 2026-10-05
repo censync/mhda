@@ -54,13 +54,39 @@ bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept {
     return true;
 }
 
+std::string quote(std::string_view s) {
+    static constexpr char hex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(s.size() + 2);
+    out += '"';
+    for (char c : s) {
+        const auto b = static_cast<unsigned char>(c);
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (b < 0x20 || b > 0x7e) {
+                    out += "\\x";
+                    out += hex[b >> 4];
+                    out += hex[b & 0xf];
+                } else {
+                    out += c;
+                }
+        }
+    }
+    out += '"';
+    return out;
+}
+
 void validate_free_form_value(std::string_view component, std::string_view v) {
     for (char c : v) {
         const auto b = static_cast<unsigned char>(c);
         if (b < 0x21 || b > 0x7e || c == ':' || c == '?' || c == '#') {
             throw parse_error(error_code::invalid_value,
-                              std::string{"\""} + std::string{v} + "\" for \"" +
-                                  std::string{component} + "\"");
+                              quote(v) + " for " + quote(component));
         }
     }
 }
