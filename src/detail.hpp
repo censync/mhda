@@ -31,6 +31,22 @@ inline std::string_view trim(std::string_view s) noexcept {
     return s.substr(i, j - i);
 }
 
+// nss_byte reports whether c may appear in an NSS key or value (SPEC §1.5):
+// an RFC 3986 pchar or "/" - letters, digits and -._~!$&'()*+,;=@/ - except
+// ':' (the component separator) and '%' (percent-encoding is not supported,
+// and a raw "%41" would be a second spelling of "A"). Whitespace, control
+// bytes, non-ASCII bytes and the printable ASCII outside pchar cannot appear
+// in a conforming URN. Mirrors go-mhda's nssByte.
+inline bool nss_byte(char c) noexcept {
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+        return true;
+    }
+    for (char ok : std::string_view{"-._~!$&'()*+,;=@/"}) {
+        if (c == ok) return true;
+    }
+    return false;
+}
+
 // trim_right removes trailing ASCII whitespace only.
 inline std::string_view trim_right(std::string_view s) noexcept {
     std::size_t j = s.size();
@@ -106,11 +122,11 @@ bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept;
 std::string quote(std::string_view s);
 
 // validate_free_form_value guards a value written verbatim into the NSS
-// (ap/as/wt/wi and the chain id) against characters that would corrupt it:
-// the ':' component separator would inject foreign components on re-parse,
+// (ap/as/wt/wi and the chain id) with the NSS byte set (see nss_byte): the
+// ':' component separator would inject foreign components on re-parse,
 // '?' / '#' would truncate the URN at the RFC 8141 r/q/f delimiters, and
-// anything outside printable ASCII (whitespace of any kind, control bytes,
-// Unicode) cannot appear in a conforming NSS at all. Throws
+// whitespace, control bytes, Unicode and the rest of the printable ASCII
+// outside RFC 3986 pchar cannot appear in a conforming NSS at all. Throws
 // parse_error(invalid_value). Mirrors the Go reference's
 // validateFreeFormValue.
 void validate_free_form_value(std::string_view component, std::string_view v);

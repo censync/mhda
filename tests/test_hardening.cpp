@@ -311,3 +311,14 @@ TEST_CASE("no whitespace inside the NSS") {
     EXPECT_NO_THROW(chain::from_nss("\tnt:evm:ci:1 "));
     EXPECT_THROW_CODE(chain::from_nss("nt:evm:ci: 1"), error_code::invalid_nss);
 }
+
+// Values set in code obey the same RFC 3986 byte set as parsed ones.
+// Mirrors go-mhda's TestFreeFormValuesUseTheNSSCharset.
+TEST_CASE("free-form values use the NSS byte set") {
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1");
+    for (const char* v : {"x|y", "a%41", "<id>", "a\"b", "a{b}", "a\\b"}) {
+        EXPECT_THROW_CODE(a.set_wallet_id(v), error_code::invalid_value);
+        EXPECT_THROW_CODE((chain{network_type::ethereum_vm, v}), error_code::invalid_value);
+    }
+    EXPECT_NO_THROW(a.set_wallet_id("c0a8f2d4-3b6e_x.y~z@w"));
+}

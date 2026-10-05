@@ -100,6 +100,15 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   stripped r/q/f component (`ci:0 #frag` still parses); around a key or
   value it throws `parse_error(invalid_nss)`. Mirrors go-mhda.
 
+- **NSS bytes follow RFC 3986.** Keys and values accepted any printable
+  ASCII, so `"`, `<`, `>`, `\`, `^`, `` ` ``, `{`, `|`, `}`, `[`, `]` and a
+  raw `%` passed and were emitted in URNs that RFC 8141 does not allow. A
+  key or value is now made of letters, digits and `-._~!$&'()*+,;=@/`
+  only (RFC 3986 pchar and `/`, without `:` and `%`); anything else throws
+  `invalid_nss` when parsed and `invalid_value` from the setters and the
+  `chain` constructor. `%` is refused because percent-encoding is not
+  supported and `%41` would be a second spelling of `A`. Mirrors go-mhda.
+
 ### Fixed
 
 - **Embedding mhda leaves the parent build alone.** Added with

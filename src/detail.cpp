@@ -83,8 +83,7 @@ std::string quote(std::string_view s) {
 
 void validate_free_form_value(std::string_view component, std::string_view v) {
     for (char c : v) {
-        const auto b = static_cast<unsigned char>(c);
-        if (b < 0x21 || b > 0x7e || c == ':' || c == '?' || c == '#') {
+        if (!nss_byte(c)) {
             throw parse_error(error_code::invalid_value,
                               quote(v) + " for " + quote(component));
         }

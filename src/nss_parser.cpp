@@ -51,10 +51,9 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
             throw parse_error(error_code::invalid_nss, "empty component key");
         }
         for (char c : key) {
-            const auto b = static_cast<unsigned char>(c);
-            if (b < 0x21 || b > 0x7e) {
+            if (!nss_byte(c)) {
                 throw parse_error(error_code::invalid_nss,
-                                  std::string{"non-ASCII or control byte in component key "} + quote(key));
+                                  std::string{"byte not allowed in component key "} + quote(key));
             }
         }
         // Nothing is trimmed: the caller removes whitespace around the whole
@@ -68,10 +67,9 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
         // §1.5) — interior whitespace, control bytes and Unicode spaces are
         // all malformed input, never silently normalised.
         for (char c : value) {
-            const auto b = static_cast<unsigned char>(c);
-            if (b < 0x21 || b > 0x7e) {
+            if (!nss_byte(c)) {
                 throw parse_error(error_code::invalid_nss,
-                                  std::string{"non-ASCII or control byte in value for "} + quote(key));
+                                  std::string{"byte not allowed in value for "} + quote(key));
             }
         }
         if (!is_known_component(key)) {
