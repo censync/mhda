@@ -6,6 +6,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.2.0] — 2026-10-05
 
+URNs accepted by 1.1 are refused now: a derivation path with a level index
+of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
+
+### Changed
+
+- **A derivation-path level index of 2^31 or more is refused** with
+  `parse_error(invalid_derivation_path)`, at every level of every
+  derivation type (`bip32`, `bip44`, `bip49`, `bip54`, `bip74`, `bip84`,
+  `bip86`, `cip11`, `cip1852`, `zip32`, `slip10`), hardened or not, by
+  `parse_urn`, `parse_urn_strict`, `parse_nss`, `derivation_path::parse`
+  and `validate_derivation_path`. 1.1 accepted any value up to 2^32-1. A
+  BIP-32 child number keeps the hardened flag in its top bit (`n'` is child
+  number 2^31+n), so such an index aliased another key: a consumer
+  computing `hardened ? 0x80000000 | index : index` derives the key of
+  `m/44'/60'/0'/0/0` for `m/44'/60'/2147483648'/0/0`, and an unhardened
+  `m/44'/60'/0'/0/2147483648` asks for a hardened child number through the
+  public-key formula. No longer parse: any `dp` with a level of
+  `2147483648` to `4294967295`, with or without a hardened marker, e.g.
+  `urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/2147483648'/0/0` and
+  `urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/4294967295`. The largest
+  index is `2147483647`. The `ct` component is not a path level and keeps
+  its 32-bit range.
+
 ### Fixed
 
 - **Fixed path levels are spelled exactly**, as in go-mhda. The purpose,
@@ -26,6 +49,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `charge()`, `levels()` and `str()`. This changes the ABI of
   `derivation_path` (its constructor, `charge()` and its layout); rebuild
   dependants.
+
+### Tests
+
+- `tests/data/dp_conformance.txt`: a derivation-path conformance table
+  shared verbatim with go-mhda (`testdata/dp_conformance.txt`) and run by
+  both suites, standalone and inside a URN, so a path one implementation
+  refuses, the other refuses too. The boundary test and the fuzz seed that
+  pinned `4294967295` now sit at the new bound; 145 test cases total.
 
 ## [1.1.0] — 2026-07-04
 

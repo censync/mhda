@@ -92,9 +92,11 @@ inline std::vector<std::string_view> split(std::string_view s, char sep) {
 // the coin-type ("ct") parsing paths.
 bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept;
 
-// parse_uint32_dec parses a strictly decimal uint32_t. Used by per-level
-// derivation-path parsing where Go uses base 10.
-bool parse_uint32_dec(std::string_view s, std::uint32_t& out) noexcept;
+// parse_uint31_dec parses a strictly decimal value below 2^31. Used by
+// per-level derivation-path parsing: a BIP-32 child number keeps the hardened
+// flag in its top bit (n' is 2^31+n), so a level index has 31 bits. Mirrors
+// Go's strconv.ParseUint(s, 10, 31).
+bool parse_uint31_dec(std::string_view s, std::uint32_t& out) noexcept;
 
 }  // namespace detail
 }  // namespace mhda

@@ -51,10 +51,10 @@ bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept {
     return true;
 }
 
-bool parse_uint32_dec(std::string_view s, std::uint32_t& out) noexcept {
+bool parse_uint31_dec(std::string_view s, std::uint32_t& out) noexcept {
     std::uint64_t value = 0;
     if (!parse_in_base(s, 10, value)) return false;
-    if (value > std::numeric_limits<std::uint32_t>::max()) return false;
+    if (value >= (std::uint64_t{1} << 31)) return false;
     out = std::uint32_t(value);
     return true;
 }

@@ -33,16 +33,17 @@ urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0:wt:web3:wi:5f2a8c31
 
 ## Status
 
-- Version: **1.1.0**
+- Version: **1.2.0**
 - Standard: **C++17**, no external runtime dependencies
-- Tests: **139** unit + fuzz-equivalent stress cases (≈11 000 randomised
+- Tests: **145** unit + fuzz-equivalent stress cases (≈11 000 randomised
   iterations), passing under `-fsanitize=address,undefined,leak`
 - Compilers verified: GCC 11.4 (Ubuntu 22.04), Clang 14 (when libstdc++ is
   available); the CI matrix runs Linux + macOS, Release + Debug
 - Warning policy: clean under `-Wall -Wextra -Wpedantic -Wshadow -Wconversion
   -Wsign-conversion -Werror`
-- Binary stability is not yet guaranteed across minor versions; 1.1.0
-  changes the URN grammar (see [CHANGELOG.md](./CHANGELOG.md))
+- Binary stability is not yet guaranteed across minor versions; 1.2.0
+  refuses path indices of 2^31 or more and widens `charge_type` (see
+  [CHANGELOG.md](./CHANGELOG.md))
 
 ## Building
 
@@ -78,7 +79,7 @@ target_link_libraries(my_app PRIVATE mhda::mhda)
 include(FetchContent)
 FetchContent_Declare(mhda
     GIT_REPOSITORY https://github.com/censync/mhda.git
-    GIT_TAG        v1.1.0
+    GIT_TAG        v1.2.0
 )
 FetchContent_MakeAvailable(mhda)
 target_link_libraries(my_app PRIVATE mhda::mhda)
@@ -214,7 +215,7 @@ Mirrors the [SPEC §8](./SPEC.md#8-concurrency) contract.
 
 ## Testing & validation
 
-- 139 unit + fuzz-equivalent test cases.
+- 145 unit + fuzz-equivalent test cases.
 - Fuzz harness runs ≈11 000 randomised mutations of the historical Go-fuzz
   seed corpus per execution (URN, NSS and derivation-path entry points).
   Contracts verified: no exception other than `parse_error`/`std::invalid_argument`,

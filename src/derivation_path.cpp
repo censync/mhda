@@ -28,7 +28,9 @@ bool is_hardening_marker(char c) noexcept {
 }
 
 // parse_segment decomposes a single path segment into (numeric_part, hardened
-// flag). Returns false on empty/non-numeric input or 32-bit overflow.
+// flag). Returns false on empty/non-numeric input or an index of 2^31 or
+// more: the hardened flag is the top bit of a BIP-32 child number, so a larger
+// index would name another level's key. Applies to every level of every type.
 bool parse_segment(std::string_view seg, raw_level& out) noexcept {
     bool hardened = false;
     if (!seg.empty() && is_hardening_marker(seg.back())) {
@@ -36,7 +38,7 @@ bool parse_segment(std::string_view seg, raw_level& out) noexcept {
         seg.remove_suffix(1);
     }
     std::uint32_t value = 0;
-    if (!detail::parse_uint32_dec(seg, value)) return false;
+    if (!detail::parse_uint31_dec(seg, value)) return false;
     out.index = value;
     out.is_hardened = hardened;
     out.exact = seg.size() == 1 || seg[0] != '0';

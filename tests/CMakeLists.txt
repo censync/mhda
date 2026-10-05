@@ -11,8 +11,12 @@ add_executable(mhda_tests
     test_edge.cpp
     test_boundary.cpp
     test_hardening.cpp
+    test_index_range.cpp
 )
 target_link_libraries(mhda_tests PRIVATE mhda)
 target_include_directories(mhda_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+# The derivation-path conformance table shared with go-mhda.
+target_compile_definitions(mhda_tests PRIVATE
+    MHDA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
 add_test(NAME mhda_tests COMMAND mhda_tests)

@@ -20,8 +20,8 @@ using charge_type   = std::uint32_t;
 constexpr charge_type charge_external = 0;
 constexpr charge_type charge_internal = 1;
 
-// address_index represents a single level of a derivation path (an unsigned
-// 32-bit index plus a hardening flag).
+// address_index represents a single level of a derivation path: the index,
+// below 2^31 in every parsed path, plus the separate hardening flag.
 struct address_index {
     std::uint32_t index = 0;
     bool          is_hardened = false;

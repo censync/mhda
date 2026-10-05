@@ -61,18 +61,22 @@ TEST_CASE("coin_type rejects leading plus") {
                       error_code::invalid_coin_type);
 }
 
-TEST_CASE("derivation_path leaf accepts uint32 max") {
+TEST_CASE("derivation_path leaf accepts 2^31-1") {
     auto a = parse_urn(
-        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967295");
-    EXPECT_EQ(a.path()->index().index, std::numeric_limits<std::uint32_t>::max());
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/2147483647");
+    EXPECT_EQ(a.path()->index().index, std::uint32_t{0x7FFFFFFF});
     EXPECT_EQ(a.str(),
-        std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967295"});
+        std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/2147483647"});
 }
 
-TEST_CASE("derivation_path leaf rejects uint32 max + 1") {
-    EXPECT_THROW_CODE(parse_urn(
-        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967296"),
-        error_code::invalid_derivation_path);
+TEST_CASE("derivation_path leaf rejects 2^31 and above") {
+    // A level index is 31 bits: 2^31 and above collide with the hardened bit.
+    for (const char* leaf : {"2147483648", "2147483648'", "4294967295", "4294967295'",
+                             "4294967296"}) {
+        EXPECT_THROW_CODE(parse_urn(
+            std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/"} + leaf),
+            error_code::invalid_derivation_path);
+    }
 }
 
 TEST_CASE("BIP-44 charge field rejects values outside {0,1}") {

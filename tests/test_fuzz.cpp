@@ -56,7 +56,7 @@ const std::vector<std::string> kSeedURNs = {
 
 const std::vector<std::pair<std::string, std::string>> kSeedPaths = {
     {"bip32",   "m/0'/0/0"},
-    {"bip32",   "m/2147483647'/1/4294967295'"},
+    {"bip32",   "m/2147483647'/1/2147483647'"},  // largest index, 2^31-1
     {"bip44",   "m/44'/60'/0'/0/0"},
     {"bip44",   "m/44'/0'/0'/0/0'"},
     {"bip49",   "m/49'/0'/0'/0/0"},
@@ -81,6 +81,8 @@ const std::vector<std::pair<std::string, std::string>> kSeedPaths = {
     {"slip10",  "m"},
     {"slip10",  "m/"},
     {"slip10",  "m/99999999999999999999"},
+    {"bip32",   "m/2147483648'/1/0"},           // index 2^31
+    {"bip44",   "m/44'/60'/0'/0/4294967295"},   // index 2^32-1
     {"unknown", "m/0/0/0"},
 };
 
@@ -208,7 +210,14 @@ TEST_CASE("FuzzDerivationPath: no panic, idempotent on success") {
                         + " twice=" + dp2.str()
                         + " input dt=" + dt_str + " path=" + path});
             }
-            (void)dp.levels();
+            // No accepted level may carry an index of 2^31 or more.
+            for (const auto& lvl : dp.levels()) {
+                if (lvl.index > 0x7FFFFFFFu) {
+                    mhda_failures.push_back({__FILE__, __LINE__,
+                        std::string{"level above 2^31-1: input dt="} + dt_str
+                            + " path=" + path});
+                }
+            }
         } catch (const parse_error&) {
             // Rejection is fine.
         } catch (const std::invalid_argument&) {
