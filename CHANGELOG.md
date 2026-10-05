@@ -78,6 +78,17 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
 
 ### Fixed
 
+- **`levels()` and `str()` cannot disagree.** `from_levels` kept any
+  levels it was given while `str()` printed the type's template: a BIP-44
+  path built from `49'/60'/0/0/0` printed `m/44'/60'/0'/0/0` but returned
+  purpose 49' and an unhardened account from `levels()`, which is what a
+  wallet derives from. Too few levels (or none for SLIP-10) or an index of
+  2^31 produced a URN that does not parse, and the five-argument
+  constructor accepted a charge of 7 or an account of 2^31. Both now
+  return exactly the path `parse()` gives back for their own `str()`, and
+  throw `parse_error(invalid_derivation_path)` otherwise. Two boundary
+  tests that pinned the old results now expect the refusal. Mirrors
+  go-mhda.
 - **Static initialisation and destruction order.** The named constants
   (`network_type::bitcoin`, `algorithm::secp256k1`, `format::hex`,
   `derivation_type::root`, ...) were defined in the library's `.cpp` files

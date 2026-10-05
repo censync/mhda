@@ -53,7 +53,9 @@ public:
     // std::invalid_argument (mirroring the panic in the Go implementation).
     // An unregistered derivation type throws
     // parse_error(invalid_derivation_type): the type is written verbatim
-    // into the URN.
+    // into the URN. The result is the path parse() gives back for its own
+    // str(); values that do not form a valid path (charge 7 in a BIP-44
+    // path, an index of 2^31) throw parse_error(invalid_derivation_path).
     derivation_path(derivation_type dt,
                     coin_type coin,
                     account_index account,
@@ -64,6 +66,12 @@ public:
     // SLIP-10 and a convenient alternative for any scheme. For fixed-shape
     // schemes the shortcut fields are populated from the levels. An
     // unregistered derivation type throws parse_error(invalid_derivation_type).
+    // The result is the path parse() gives back for its own str(), and it
+    // must have exactly the given levels: levels that do not form a path of
+    // the type (purpose 49' for bip44, an unhardened account, too few levels,
+    // none for slip10, an index of 2^31) throw
+    // parse_error(invalid_derivation_path), so levels() and str() never
+    // disagree.
     static derivation_path from_levels(derivation_type dt,
                                        std::vector<address_index> levels);
 

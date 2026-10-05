@@ -144,6 +144,12 @@ TEST_CASE("FuzzParseURN: no panic, idempotent on success") {
                     std::string{"not idempotent: once="} + once
                         + " twice=" + twice.str() + " input=" + src});
             }
+            // The levels a wallet derives from must survive the round trip.
+            if (addr.path().has_value() != twice.path().has_value() ||
+                (addr.path() && addr.path()->levels() != twice.path()->levels())) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"path changed on re-parse: "} + once + " input=" + src});
+            }
         } catch (const parse_error&) {
             // Rejected inputs are fine; the contract is just "no crash".
         } catch (const std::exception& e) {
@@ -220,6 +226,12 @@ TEST_CASE("FuzzDerivationPath: no panic, idempotent on success") {
                 mhda_failures.push_back({__FILE__, __LINE__,
                     std::string{"not idempotent: once="} + once
                         + " twice=" + dp2.str()
+                        + " input dt=" + dt_str + " path=" + path});
+            }
+            // str() and levels() describe the same path.
+            if (dp2.levels() != dp.levels()) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"path changed on re-parse: "} + once
                         + " input dt=" + dt_str + " path=" + path});
             }
             // No accepted level may carry an index of 2^31 or more.

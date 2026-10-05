@@ -359,19 +359,19 @@ TEST_CASE("self-assignment via reference leaves address unchanged") {
     EXPECT_EQ(a.str(), before);
 }
 
-TEST_CASE("from_levels with zero levels for SLIP10 produces empty path") {
-    auto dp = derivation_path::from_levels(derivation_type::slip10, {});
-    EXPECT_EQ(dp.str(), std::string{"m"});
-    EXPECT_FALSE(dp.has_index());
+TEST_CASE("from_levels with zero levels for SLIP10 is refused") {
+    // "m" alone is no SLIP-10 path: the parser refuses it, so does from_levels.
+    EXPECT_THROW_CODE(derivation_path::from_levels(derivation_type::slip10, {}),
+                      error_code::invalid_derivation_path);
 }
 
-TEST_CASE("from_levels under-populated for BIP44 leaves shortcuts at zero") {
-    auto dp = derivation_path::from_levels(derivation_type::bip44, {
-        {44, true}, {60, true},  // only 2 levels, well below the 5 expected
-    });
-    EXPECT_EQ(dp.coin(), 0u);
-    EXPECT_EQ(dp.account(), 0u);
-    EXPECT_FALSE(dp.has_index());
+TEST_CASE("from_levels under-populated for BIP44 is refused") {
+    // Two levels are no BIP-44 path; str() would print the zero template
+    // m/44'/0'/0'/0/0 while levels() held 44'/60'.
+    EXPECT_THROW_CODE(derivation_path::from_levels(derivation_type::bip44, {
+                          {44, true}, {60, true},
+                      }),
+                      error_code::invalid_derivation_path);
 }
 
 TEST_CASE("hash and nss_hash do not crash on uninitialised address") {

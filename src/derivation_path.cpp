@@ -172,6 +172,21 @@ bool validate_levels_for(const derivation_type& dt, const std::vector<raw_level>
     return false;
 }
 
+// reparsed returns the path the parser gives back for dp.str() and throws
+// parse_error(invalid_derivation_path) unless it has exactly the given
+// levels. A constructed path is then identical to a parsed one: its URN
+// parses, and levels() never disagrees with str() (a BIP-44 path given
+// purpose 49', an unhardened account, too few levels or an index of 2^31 is
+// refused). Mirrors go-mhda.
+derivation_path reparsed(const derivation_path& dp, const std::vector<address_index>& levels) {
+    derivation_path out = derivation_path::parse(dp.type(), dp.str());
+    if (out.levels() != levels) {
+        throw parse_error(error_code::invalid_derivation_path,
+                          "levels do not form a " + dp.type().str() + " path");
+    }
+    return out;
+}
+
 }  // namespace
 
 bool validate_derivation_path(const derivation_type& dt, std::string_view path) {
@@ -202,6 +217,7 @@ derivation_path::derivation_path(derivation_type dt,
     }
     has_index_ = (type_ != derivation_type::root);
     rebuild_levels();
+    *this = reparsed(*this, levels_);
 }
 
 derivation_path derivation_path::from_levels(derivation_type dt,
@@ -214,7 +230,7 @@ derivation_path derivation_path::from_levels(derivation_type dt,
     dp.type_ = std::move(dt);
     dp.levels_ = std::move(levels);
     dp.populate_shortcuts_from_levels();
-    return dp;
+    return reparsed(dp, dp.levels_);
 }
 
 derivation_path derivation_path::parse(derivation_type dt, std::string_view path) {
