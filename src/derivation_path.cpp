@@ -15,6 +15,10 @@ namespace {
 struct raw_level {
     std::uint32_t index;
     bool          is_hardened;
+    // exact is false when the digits carry a leading zero ("060"). A variable
+    // level accepts that; a fixed level (purpose, fixed coin, 0|1 charge) is
+    // a literal in the Go reference's regexes and must be spelled exactly.
+    bool          exact;
 };
 
 // is_hardening_marker reports whether c is one of the accepted hardening
@@ -35,6 +39,7 @@ bool parse_segment(std::string_view seg, raw_level& out) noexcept {
     if (!detail::parse_uint32_dec(seg, value)) return false;
     out.index = value;
     out.is_hardened = hardened;
+    out.exact = seg.size() == 1 || seg[0] != '0';
     return true;
 }
 
@@ -67,14 +72,18 @@ bool parse_levels(std::string_view path, std::vector<raw_level>& levels) {
     return true;
 }
 
-// expect_purpose verifies that level[0] is the given purpose (hardened).
+// expect_purpose verifies that level[0] is the given purpose (hardened,
+// spelled exactly).
 bool expect_purpose(const std::vector<raw_level>& lvls, std::uint32_t purpose) {
-    return !lvls.empty() && lvls[0].index == purpose && lvls[0].is_hardened;
+    return !lvls.empty() && lvls[0].index == purpose && lvls[0].is_hardened &&
+           lvls[0].exact;
 }
 
-// expect_coin verifies that level[1] is the given coin (hardened).
+// expect_coin verifies that level[1] is the given coin (hardened, spelled
+// exactly).
 bool expect_coin(const std::vector<raw_level>& lvls, std::uint32_t coin) {
-    return lvls.size() >= 2 && lvls[1].index == coin && lvls[1].is_hardened;
+    return lvls.size() >= 2 && lvls[1].index == coin && lvls[1].is_hardened &&
+           lvls[1].exact;
 }
 
 // validate_bip44_family validates the 5-level BIP-44-shaped layout:
@@ -91,6 +100,7 @@ bool validate_bip44_family(const std::vector<raw_level>& lvls,
     if (!lvls[2].is_hardened) return false;            // account hardened
     if (lvls[3].is_hardened)  return false;            // charge soft
     if (lvls[3].index > 1)    return false;            // charge ∈ {0,1}
+    if (!lvls[3].exact)       return false;            // charge spelled 0 or 1
     return true;  // index leaf: arbitrary, hardening optional
 }
 
@@ -100,6 +110,7 @@ bool validate_bip32(const std::vector<raw_level>& lvls) {
     if (!lvls[0].is_hardened) return false;
     if (lvls[1].is_hardened)  return false;
     if (lvls[1].index > 1)    return false;
+    if (!lvls[1].exact)       return false;
     return true;
 }
 

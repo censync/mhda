@@ -8,6 +8,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Fixed path levels are spelled exactly**, as in go-mhda. The purpose,
+  the fixed coin of `cip11` / `cip1852` / `zip32` and the `0`/`1` charge of
+  `bip32` and the BIP-44 family are literals in the Go reference's grammar;
+  the port compared their values only and so accepted a leading zero that
+  Go refuses (`m/044'/60'/0'/0/0`, `m/44'/60'/0'/00/0`,
+  `m/1852'/01815'/0'/0/0`). These now throw
+  `parse_error(invalid_derivation_path)`. Leading zeros in a variable level
+  (`m/44'/060'/0'/0/0`) are still accepted, as in Go, and dropped in the
+  canonical form.
+
 - **`charge_type` is 32 bits wide (was `std::uint8_t`).** The CIP-11 charge
   and the CIP-1852 role accept any level index, but the parsed value was
   truncated to a byte: `m/1852'/1815'/0'/256/0` parsed as role 0, so it

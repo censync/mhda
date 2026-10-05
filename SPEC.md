@@ -248,6 +248,12 @@ Hardening markers in input: `'`, `H`, or `h` are all accepted and normalised
 to `'` in canonical output. The trailing `[']` on `index` denotes that the
 leaf level itself may be hardened.
 
+Leading zeros are accepted in a variable level and dropped in canonical
+output (`m/44'/060'/0'/0/0` is `m/44'/60'/0'/0/0`); the range applies to the
+value. A fixed level (the purpose, the fixed coin of `cip11`, `cip1852` and
+`zip32`, the `0`/`1` charge of `bip32` and the BIP-44 family) must be spelled
+exactly as in the template.
+
 ### 3.1 Variable-length paths
 
 `slip10` accepts any number of levels and is the right type for chains whose

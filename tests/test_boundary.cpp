@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "mhda/mhda.hpp"
@@ -130,6 +132,44 @@ TEST_CASE("derivation_path rejects mixed alphanumeric in segment") {
 TEST_CASE("derivation_path rejects double hardening marker") {
     EXPECT_THROW_CODE(derivation_path::parse(derivation_type::slip10, "m/0''"),
                       error_code::invalid_derivation_path);
+}
+
+TEST_CASE("derivation_path fixed levels are spelled exactly") {
+    // Mirrors the go-mhda regexes: the purpose, the fixed coin and the 0|1
+    // charge are literals, so a leading zero there is refused.
+    const std::vector<std::pair<derivation_type, std::string>> refused = {
+        {derivation_type::bip44,   "m/044'/60'/0'/0/0"},
+        {derivation_type::bip84,   "m/084'/0'/0'/0/0"},
+        {derivation_type::bip44,   "m/44'/60'/0'/00/0"},
+        {derivation_type::bip44,   "m/44'/60'/0'/01/0"},
+        {derivation_type::bip32,   "m/0'/00/0"},
+        {derivation_type::cip11,   "m/044'/118'/0'/0/0"},
+        {derivation_type::cip11,   "m/44'/0118'/0'/0/0"},
+        {derivation_type::cip1852, "m/01852'/1815'/0'/0/0"},
+        {derivation_type::cip1852, "m/1852'/01815'/0'/0/0"},
+        {derivation_type::zip32,   "m/032'/133'/0'"},
+        {derivation_type::zip32,   "m/32'/0133'/0'"},
+    };
+    for (const auto& r : refused) {
+        EXPECT_THROW_CODE(derivation_path::parse(r.first, r.second),
+                          error_code::invalid_derivation_path);
+        EXPECT_FALSE(validate_derivation_path(r.first, r.second));
+    }
+}
+
+TEST_CASE("derivation_path variable levels accept leading zeros") {
+    // The value counts; the canonical form drops the zeros.
+    const std::vector<std::tuple<derivation_type, std::string, std::string>> accepted = {
+        {derivation_type::bip44,   "m/44'/060'/00'/0/007", "m/44'/60'/0'/0/7"},
+        {derivation_type::bip32,   "m/00'/1/007'",         "m/0'/1/7'"},
+        {derivation_type::cip11,   "m/44'/118'/0'/09/0",   "m/44'/118'/0'/9/0"},
+        {derivation_type::cip1852, "m/1852'/1815'/0'/02/0", "m/1852'/1815'/0'/2/0"},
+        {derivation_type::zip32,   "m/32'/133'/00'/00'",   "m/32'/133'/0'/0'"},
+        {derivation_type::slip10,  "m/044'/0501'/00'",     "m/44'/501'/0'"},
+    };
+    for (const auto& r : accepted) {
+        EXPECT_EQ(derivation_path::parse(std::get<0>(r), std::get<1>(r)).str(), std::get<2>(r));
+    }
 }
 
 TEST_CASE("derivation_path accepts SLIP-10 with single level") {
