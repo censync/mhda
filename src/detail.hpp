@@ -31,6 +31,13 @@ inline std::string_view trim(std::string_view s) noexcept {
     return s.substr(i, j - i);
 }
 
+// trim_right removes trailing ASCII whitespace only.
+inline std::string_view trim_right(std::string_view s) noexcept {
+    std::size_t j = s.size();
+    while (j > 0 && is_ascii_space(s[j - 1])) --j;
+    return s.substr(0, j);
+}
+
 // to_lower returns an ASCII-lowercased copy of s.
 inline std::string to_lower(std::string_view s) {
     std::string out;

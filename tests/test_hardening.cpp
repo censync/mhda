@@ -286,3 +286,28 @@ TEST_CASE("error messages escape the input they quote") {
         EXPECT_TRUE(std::string{e.what()}.find(R"("x\n\"y\\")") != std::string::npos);
     }
 }
+
+// ASCII whitespace is trimmed around the whole URN (and around an NSS or
+// chain key given on its own, and before an r/q/f component), never around a
+// key or value inside it. Mirrors go-mhda's TestNoWhitespaceInsideNSS.
+TEST_CASE("no whitespace inside the NSS") {
+    for (const char* urn : {"urn:mhda:nt:evm:ci: 1",
+                            "urn:mhda:nt:evm:ci:1 :dt:bip44:dp:m/44'/60'/0'/0/0",
+                            "urn:mhda:nt: evm:ci:1",
+                            "urn:mhda:nt:evm:ci:1:dt: bip44 :dp:m/44'/60'/0'/0/0",
+                            "urn:mhda: nt:evm:ci:1",
+                            "urn:mhda:nt:evm:ci:1\t:wt:x"}) {
+        EXPECT_THROW_CODE(parse_urn(urn), error_code::invalid_nss);
+    }
+    const std::vector<std::pair<std::string, std::string>> accepted = {
+        {"  urn:mhda:nt:evm:ci:1\t", "urn:mhda:nt:evm:ci:1"},
+        {"urn:mhda:nt:evm:ci:0 #frag", "urn:mhda:nt:evm:ci:0"},
+        {"urn:mhda:nt:evm:ci:1 ?=q", "urn:mhda:nt:evm:ci:1"},
+    };
+    for (const auto& a : accepted) {
+        EXPECT_EQ(parse_urn(a.first).str(), a.second);
+    }
+    EXPECT_NO_THROW(parse_nss(" nt:evm:ci:1 "));
+    EXPECT_NO_THROW(chain::from_nss("\tnt:evm:ci:1 "));
+    EXPECT_THROW_CODE(chain::from_nss("nt:evm:ci: 1"), error_code::invalid_nss);
+}

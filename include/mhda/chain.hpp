@@ -55,7 +55,8 @@ public:
 
     // from_nss parses the chain-domain components ("nt", "ci" and the
     // optional "ct" metadata) from the given NSS string. Other components are
-    // tolerated and ignored, so a full address NSS is valid input.
+    // tolerated and ignored, so a full address NSS is valid input. Surrounding
+    // ASCII whitespace is trimmed; whitespace inside the NSS is refused.
     static chain from_nss(std::string_view nss);
 
     // set_network / set_chain_id validate like the constructor and throw

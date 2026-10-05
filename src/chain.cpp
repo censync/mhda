@@ -84,7 +84,7 @@ void chain::set_chain_id(chain_id ci) {
 }
 
 chain chain::from_nss(std::string_view nss) {
-    auto components = detail::parse_nss_map(nss);
+    auto components = detail::parse_nss_map(detail::trim(nss));
     if (components.find(std::string{detail::comp_network_type}) == components.end()) {
         throw parse_error(error_code::missing_network_type);
     }

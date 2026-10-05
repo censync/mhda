@@ -33,6 +33,15 @@ address parse_address_from_components(const std::unordered_map<std::string, std:
     return addr;
 }
 
+// parse_address_nss parses an NSS without surrounding whitespace.
+address parse_address_nss(std::string_view nss) {
+    auto components = detail::parse_nss_map(nss);
+    if (components.find(std::string{detail::comp_network_type}) == components.end()) {
+        throw parse_error(error_code::missing_network_type);
+    }
+    return parse_address_from_components(components);
+}
+
 }  // namespace
 
 address parse_urn(std::string_view src) {
@@ -40,8 +49,11 @@ address parse_urn(std::string_view src) {
     if (!detail::has_prefix_fold(trimmed, detail::prefix_mhda)) {
         throw parse_error(error_code::invalid_urn);
     }
-    auto nss = detail::strip_rqf(trimmed.substr(detail::prefix_mhda.size()));
-    return parse_nss(nss);
+    // Whitespace left before a stripped r/q/f component ("ci:0 #frag") ends
+    // the URN like the whitespace trimmed above; any other whitespace in the
+    // NSS is malformed and parse_nss_map refuses it.
+    auto nss = detail::trim_right(detail::strip_rqf(trimmed.substr(detail::prefix_mhda.size())));
+    return parse_address_nss(nss);
 }
 
 address parse_urn_strict(std::string_view src) {
@@ -51,11 +63,7 @@ address parse_urn_strict(std::string_view src) {
 }
 
 address parse_nss(std::string_view nss) {
-    auto components = detail::parse_nss_map(nss);
-    if (components.find(std::string{detail::comp_network_type}) == components.end()) {
-        throw parse_error(error_code::missing_network_type);
-    }
-    return parse_address_from_components(components);
+    return parse_address_nss(detail::trim(nss));
 }
 
 }  // namespace mhda

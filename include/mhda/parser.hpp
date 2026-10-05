@@ -23,7 +23,8 @@ address parse_urn(std::string_view src);
 address parse_urn_strict(std::string_view src);
 
 // parse_nss parses an MHDA namespace-specific string (the substring after
-// "urn:mhda:"). The "nt" component is required.
+// "urn:mhda:"). The "nt" component is required. Surrounding ASCII whitespace
+// is trimmed; whitespace inside the NSS is refused.
 address parse_nss(std::string_view nss);
 
 }  // namespace mhda

@@ -57,11 +57,9 @@ std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss)
                                   std::string{"non-ASCII or control byte in component key "} + quote(key));
             }
         }
-        // RFC 8141 NSS does not permit unescaped whitespace; trim ASCII
-        // whitespace so any trailing space (e.g. from "ci:0 #frag" where
-        // strip_rqf leaves the space) does not leak into the canonical form
-        // and break round-trip.
-        auto value = trim(parts[i + 1]);
+        // Nothing is trimmed: the caller removes whitespace around the whole
+        // NSS, and whitespace around a key or value is malformed input.
+        const auto value = parts[i + 1];
         if (value.empty()) {
             throw parse_error(error_code::invalid_nss,
                               std::string{"empty value for "} + quote(key));

@@ -93,6 +93,13 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   `118'`. A Bitcoin URN without `af` stays valid; SPEC.md no longer claims
   strict mode requires it. Lenient parsing is unchanged. Mirrors go-mhda.
 
+- **No whitespace inside the NSS.** Each value was trimmed, so
+  `urn:mhda:nt:evm:ci: 1 :dt: bip44 :...` parsed like the URN without the
+  spaces, against SPEC §6.1. ASCII whitespace is now trimmed only around the
+  whole URN, around an NSS or chain key parsed on its own, and before a
+  stripped r/q/f component (`ci:0 #frag` still parses); around a key or
+  value it throws `parse_error(invalid_nss)`. Mirrors go-mhda.
+
 ### Fixed
 
 - **Embedding mhda leaves the parent build alone.** Added with
