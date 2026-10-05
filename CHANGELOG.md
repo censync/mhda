@@ -63,6 +63,9 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   byte in a value, so the URN emitted from it was truncated on the next
   parse (`nt:evm:ci:1:x#y:z` was accepted). The NSS fuzz test now checks
   that the emitted URN re-parses to itself.
+- **A `slip10` path has at most 255 levels**; a deeper one throws
+  `parse_error(invalid_derivation_path)`. BIP-32 serialises a key's depth
+  in one byte, so no wallet can represent a deeper key.
 
 ### Fixed
 

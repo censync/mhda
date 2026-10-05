@@ -116,8 +116,12 @@ bool validate_bip32(const std::vector<raw_level>& lvls) {
     return true;
 }
 
+// max_slip10_depth is the deepest SLIP-10 path: BIP-32 serialises a key's
+// depth in one byte.
+constexpr std::size_t max_slip10_depth = 255;
+
 bool validate_slip10(const std::vector<raw_level>& lvls) {
-    return !lvls.empty();  // any number of levels >= 1
+    return !lvls.empty() && lvls.size() <= max_slip10_depth;
 }
 
 bool validate_cip11(const std::vector<raw_level>& lvls) {

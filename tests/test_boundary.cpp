@@ -186,12 +186,17 @@ TEST_CASE("derivation_path accepts SLIP-10 with single level") {
 // Huge inputs
 // ---------------------------------------------------------------------------
 
-TEST_CASE("very long SLIP-10 path (256 levels) round-trips") {
+TEST_CASE("SLIP-10 path of 255 levels round-trips, 256 is refused") {
+    // BIP-32 serialises a key's depth in one byte.
     std::string path = "m";
-    for (int i = 0; i < 256; ++i) path += "/0'";
+    for (int i = 0; i < 255; ++i) path += "/0'";
     auto dp = derivation_path::parse(derivation_type::slip10, path);
-    EXPECT_EQ(dp.levels().size(), 256u);
+    EXPECT_EQ(dp.levels().size(), 255u);
     EXPECT_EQ(dp.str(), path);
+    path += "/0'";
+    EXPECT_THROW_CODE(derivation_path::parse(derivation_type::slip10, path),
+                      error_code::invalid_derivation_path);
+    EXPECT_FALSE(validate_derivation_path(derivation_type::slip10, path));
 }
 
 TEST_CASE("very long chain_id (4 KiB) round-trips") {
