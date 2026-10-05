@@ -15,6 +15,7 @@ add_executable(mhda_tests
     test_static_init.cpp
     test_urn_conformance.cpp
     test_state.cpp
+    test_windows_macros.cpp
 )
 target_link_libraries(mhda_tests PRIVATE mhda)
 target_include_directories(mhda_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

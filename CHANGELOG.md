@@ -106,6 +106,12 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   preset, without export macros, left `libmhda.so` with no mhda symbols
   and every consumer failed to link. A shared mhda now exports its symbols
   (`WINDOWS_EXPORT_ALL_SYMBOLS` for a DLL); a static one keeps them hidden.
+- **The headers compile under `<windows.h>`.** Its `near` macro (empty, from
+  `minwindef.h`) turned `coins::near` into a syntax error in any
+  translation unit that included `<windows.h>` first. `coin_type.hpp` now
+  sets the macro aside for its list and restores it, and the new alias
+  `coins::near_protocol` (after `network_type::near_protocol`) stays usable
+  while the macro is in effect.
 - **The installed package is complete.** `mhda::mhda` now requires
   `cxx_std_17` publicly, so a consumer asking for C++14 is raised to C++17
   instead of failing on `std::optional`, and the install include path

@@ -7,9 +7,19 @@ namespace mhda {
 // CoinType is a SLIP-44 coin type (32-bit unsigned integer).
 using coin_type = std::uint32_t;
 
+// <windows.h> (minwindef.h) defines `near` as an empty macro, which would
+// turn coins::near below into a syntax error. It is set aside for this list
+// and restored afterwards; while it is in effect, use coins::near_protocol.
+#if defined(near)
+#pragma push_macro("near")
+#undef near
+#define MHDA_COIN_TYPE_RESTORE_NEAR
+#endif
+
 // SLIP-44 registered coin types, ascending by index
 // (https://github.com/satoshilabs/slips/blob/master/slip-0044.md).
-// Matches go-mhda/coin_type.go.
+// Matches go-mhda/coin_type.go. Several names (move, near) are common words:
+// qualify them (coins::move) rather than `using namespace mhda::coins`.
 namespace coins {
 
 constexpr coin_type btc   = 0;
@@ -35,6 +45,7 @@ constexpr coin_type zil   = 313;
 constexpr coin_type luna  = 330;
 constexpr coin_type dot   = 354;
 constexpr coin_type near  = 397;
+constexpr coin_type near_protocol = near;  // usable under <windows.h>
 constexpr coin_type ksm   = 434;
 constexpr coin_type kava  = 459;
 constexpr coin_type fil   = 461;
@@ -74,5 +85,10 @@ constexpr coin_type inj   = 22000119;
 constexpr coin_type mon   = 268435779;
 
 }  // namespace coins
+
+#if defined(MHDA_COIN_TYPE_RESTORE_NEAR)
+#pragma pop_macro("near")
+#undef MHDA_COIN_TYPE_RESTORE_NEAR
+#endif
 
 }  // namespace mhda
