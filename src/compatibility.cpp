@@ -17,7 +17,9 @@ struct network_compat {
 };
 
 const std::unordered_map<network_type, network_compat>& matrix() {
-    static const std::unordered_map<network_type, network_compat> cache = []() {
+    // Allocated once and never destroyed: a consumer's global destructor may
+    // still parse after static destruction has begun.
+    static const auto* cache = new std::unordered_map<network_type, network_compat>([]() {
         std::unordered_map<network_type, network_compat> m;
         // Bitcoin
         m.emplace(network_type::bitcoin, network_compat{
@@ -135,8 +137,8 @@ const std::unordered_map<network_type, network_compat>& matrix() {
             format::base64url,
         });
         return m;
-    }();
-    return cache;
+    }());
+    return *cache;
 }
 
 }  // namespace

@@ -209,7 +209,10 @@ Mirrors the [SPEC §8](./SPEC.md#8-concurrency) contract.
   index, algorithm/format/derivation registries) are populated lazily inside
   `static const` function-locals (Magic Statics — guaranteed thread-safe by
   C++11 §6.7.4) and are read-only thereafter; concurrent reads are safe and
-  introduce no locking.
+  introduce no locking. The tables are allocated once and never destroyed,
+  and the named constants (`network_type::bitcoin`, `derivation_type::root`,
+  ...) are inline variables defined in the public headers, so the library
+  also works from a consumer's global constructors and destructors.
 - No `std::mutex`, `std::atomic`, recursive locks or condition variables are
   used anywhere in the library — deadlock by construction is impossible.
 

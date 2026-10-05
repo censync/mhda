@@ -6,28 +6,12 @@
 
 namespace mhda {
 
-// Network types use the commonly accepted network names, lowercase. Family
-// types that cover a single ecosystem carry that ecosystem's name (tron,
-// avalanche); "evm" stays as-is because it covers many independent networks.
-const network_type network_type::bitcoin       {"bitcoin"};
-const network_type network_type::ethereum_vm   {"evm"};
-const network_type network_type::avalanche_vm  {"avalanche"};
-const network_type network_type::tron_vm       {"tron"};
-const network_type network_type::cosmos        {"cosmos"};
-const network_type network_type::solana        {"solana"};
-const network_type network_type::xrp_ledger    {"xrpl"};
-const network_type network_type::stellar       {"stellar"};
-const network_type network_type::near_protocol {"near"};
-const network_type network_type::aptos         {"aptos"};
-const network_type network_type::sui           {"sui"};
-const network_type network_type::cardano       {"cardano"};
-const network_type network_type::algorand      {"algorand"};
-const network_type network_type::toncoin       {"ton"};
-
 namespace {
 
 const std::unordered_map<std::string, network_type>& nt_index() {
-    static const std::unordered_map<std::string, network_type> index = {
+    // Allocated once and never destroyed: a consumer's global destructor may
+    // still parse after static destruction has begun.
+    static const auto* index = new std::unordered_map<std::string, network_type>{
         {"bitcoin",   network_type::bitcoin},
         {"evm",       network_type::ethereum_vm},
         {"avalanche", network_type::avalanche_vm},
@@ -43,7 +27,7 @@ const std::unordered_map<std::string, network_type>& nt_index() {
         {"algorand",  network_type::algorand},
         {"ton",       network_type::toncoin},
     };
-    return index;
+    return *index;
 }
 
 }  // namespace

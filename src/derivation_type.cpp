@@ -7,28 +7,17 @@
 
 namespace mhda {
 
-const derivation_type derivation_type::root    {"root"};
-const derivation_type derivation_type::bip32   {"bip32"};
-const derivation_type derivation_type::bip44   {"bip44"};
-const derivation_type derivation_type::bip49   {"bip49"};
-const derivation_type derivation_type::bip54   {"bip54"};
-const derivation_type derivation_type::bip74   {"bip74"};
-const derivation_type derivation_type::bip84   {"bip84"};
-const derivation_type derivation_type::bip86   {"bip86"};
-const derivation_type derivation_type::slip10  {"slip10"};
-const derivation_type derivation_type::cip1852 {"cip1852"};
-const derivation_type derivation_type::cip11   {"cip11"};
-const derivation_type derivation_type::zip32   {"zip32"};
-
 namespace {
 
 const std::unordered_set<std::string>& dt_index() {
-    static const std::unordered_set<std::string> index = {
+    // Allocated once and never destroyed: a consumer's global destructor may
+    // still parse after static destruction has begun.
+    static const auto* index = new std::unordered_set<std::string>{
         "root", "bip32", "bip44", "bip49",
         "bip54", "bip74", "bip84", "bip86",
         "slip10", "cip1852", "cip11", "zip32",
     };
-    return index;
+    return *index;
 }
 
 }  // namespace

@@ -31,6 +31,19 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
 
 ### Fixed
 
+- **Static initialisation and destruction order.** The named constants
+  (`network_type::bitcoin`, `algorithm::secp256k1`, `format::hex`,
+  `derivation_type::root`, ...) were defined in the library's `.cpp` files
+  and built at start-up in an unspecified order relative to the consumer's
+  globals, and the lookup tables copied them on first use. A consumer
+  global that used one (a built-in chain table, a URN validated up front)
+  could run first: it saw empty values and left the tables wrong for the
+  whole process (`parse_urn_strict` then refused every network as
+  unknown). A global destructor that parsed at exit read destroyed tables
+  and crashed. The constants are now inline variables defined in the
+  public headers, so they are initialised before any global defined after
+  the include, and the lookup tables are allocated once and never
+  destroyed.
 - **Fixed path levels are spelled exactly**, as in go-mhda. The purpose,
   the fixed coin of `cip11` / `cip1852` / `zip32` and the `0`/`1` charge of
   `bip32` and the BIP-44 family are literals in the Go reference's grammar;

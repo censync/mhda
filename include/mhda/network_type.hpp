@@ -41,6 +41,29 @@ private:
     std::string value_;
 };
 
+// The named constants are inline variables defined in this header: every
+// translation unit that names one includes their definitions, so they are
+// initialised before any namespace-scope object defined after the include,
+// and a consumer's global constructors and destructors can use them.
+//
+// Network types use the commonly accepted network names, lowercase. Family
+// types that cover a single ecosystem carry that ecosystem's name (tron,
+// avalanche); "evm" stays as-is because it covers many independent networks.
+inline const network_type network_type::bitcoin       {"bitcoin"};
+inline const network_type network_type::ethereum_vm   {"evm"};
+inline const network_type network_type::avalanche_vm  {"avalanche"};
+inline const network_type network_type::tron_vm       {"tron"};
+inline const network_type network_type::cosmos        {"cosmos"};
+inline const network_type network_type::solana        {"solana"};
+inline const network_type network_type::xrp_ledger    {"xrpl"};
+inline const network_type network_type::stellar       {"stellar"};
+inline const network_type network_type::near_protocol {"near"};
+inline const network_type network_type::aptos         {"aptos"};
+inline const network_type network_type::sui           {"sui"};
+inline const network_type network_type::cardano       {"cardano"};
+inline const network_type network_type::algorand      {"algorand"};
+inline const network_type network_type::toncoin       {"ton"};
+
 // network_type_from_string parses a string into a network_type. Lookup is
 // case-insensitive; surrounding whitespace is stripped. Returns an empty
 // optional for unknown values.

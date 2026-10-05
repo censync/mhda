@@ -11,14 +11,16 @@ namespace detail {
 namespace {
 
 const std::unordered_set<std::string_view>& known_components() {
-    static const std::unordered_set<std::string_view> set = {
+    // Allocated once and never destroyed: a consumer's global destructor may
+    // still parse after static destruction has begun.
+    static const auto* set = new std::unordered_set<std::string_view>{
         comp_network_type, comp_chain_id, comp_coin_type,
         comp_derivation_type, comp_derivation_path,
         comp_address_algorithm, comp_address_format,
         comp_address_prefix, comp_address_suffix,
         comp_wallet_type, comp_wallet_id,
     };
-    return set;
+    return *set;
 }
 
 }  // namespace

@@ -33,6 +33,18 @@ private:
     std::string value_;
 };
 
+// The named constants are inline variables defined in this header: every
+// translation unit that names one includes their definitions, so they are
+// initialised before any namespace-scope object defined after the include,
+// and a consumer's global constructors and destructors can use them.
+inline const algorithm algorithm::secp256k1  {"secp256k1"};
+inline const algorithm algorithm::ed25519    {"ed25519"};
+inline const algorithm algorithm::sr25519    {"sr25519"};
+inline const algorithm algorithm::secp256r1  {"secp256r1"};
+inline const algorithm algorithm::secp384r1  {"secp384r1"};
+inline const algorithm algorithm::secp521r1  {"secp521r1"};
+inline const algorithm algorithm::prime256v1 {"prime256v1"};
+
 // algorithm_from_string parses a string into an algorithm. Lookup is
 // case-insensitive; surrounding whitespace is stripped. Returns an empty
 // optional for unknown values.
