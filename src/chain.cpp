@@ -93,6 +93,15 @@ chain chain::from_nss(std::string_view nss) {
 
 chain chain::from_key(std::string_view key) {
     const auto trimmed = detail::trim(key);
+    // A dangling token is residue like any other: the input is not the
+    // canonical key, whatever else it carries.
+    std::size_t colons = 0;
+    for (char c : trimmed) colons += c == ':';
+    if (!trimmed.empty() && colons % 2 == 0) {
+        throw parse_error(error_code::invalid_chain_key,
+                          std::string{"not a sequence of key:value pairs: \""} +
+                              std::string{trimmed} + "\"");
+    }
     auto components = detail::parse_nss_map(trimmed);
     if (components.find(std::string{detail::comp_coin_type}) != components.end()) {
         throw parse_error(error_code::coin_type_in_chain_key);
