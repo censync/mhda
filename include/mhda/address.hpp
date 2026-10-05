@@ -73,8 +73,10 @@ public:
     // resolves to ROOT. Allocates a fresh derivation_path if none was attached.
     void set_derivation_type(std::string_view dt);
 
-    // set_derivation_path validates and applies the textual path. If the path's
-    // derivation type is ROOT this is a silent no-op. Throws parse_error.
+    // set_derivation_path validates and applies the textual path. A root
+    // address has no path: an empty (or all-whitespace) dp is a no-op, any
+    // other dp throws parse_error(invalid_derivation_path). Throws
+    // parse_error.
     void set_derivation_path(std::string_view dp);
 
     // set_coin_type sets the chain's optional coin-type metadata from a

@@ -71,10 +71,18 @@ void address::set_derivation_type(std::string_view dt) {
 
 void address::set_derivation_path(std::string_view dp) {
     if (!path_) path_.emplace();
-    if (path_->type() == derivation_type::root || path_->type().empty()) {
-        return;  // root has no path; silent no-op matches Go semantics
-    }
     auto trimmed = detail::trim(dp);
+    if (path_->type() == derivation_type::root || path_->type().empty()) {
+        // A root address has no path. Dropping one instead would let a URN
+        // with a dp but no dt (which parses as root) name the root key rather
+        // than the path it spells out. Mirrors go-mhda.
+        if (!trimmed.empty()) {
+            throw parse_error(error_code::invalid_derivation_path,
+                              std::string{"root derivation must have empty path, got \""} +
+                                  std::string{trimmed} + "\"");
+        }
+        return;
+    }
     auto lowered = detail::to_lower(trimmed);
     path_->parse_path(lowered);
 }

@@ -41,6 +41,13 @@ of 2^31 or more no longer parses. Mirrors go-mhda 1.2.0.
   `derivation_path` constructor, `from_levels` and `set_type` throw
   `parse_error(invalid_derivation_type)` on an unregistered type. Mirrors
   go-mhda.
+- **A derivation path without a derivation type, or under `dt:root`, is
+  refused** with `parse_error(invalid_derivation_path)`. Both used to be
+  dropped silently: `urn:mhda:nt:evm:ci:1:dp:m/44'/60'/0'/0/0` and
+  `urn:mhda:nt:evm:ci:1:dt:root:dp:m/0` parsed as the root address
+  `urn:mhda:nt:evm:ci:1`, naming the root key instead of the path they
+  spell out. `address::set_derivation_path` on a root address accepts only
+  an empty path.
 
 ### Fixed
 

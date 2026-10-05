@@ -13,10 +13,11 @@ add_executable(mhda_tests
     test_hardening.cpp
     test_index_range.cpp
     test_static_init.cpp
+    test_urn_conformance.cpp
 )
 target_link_libraries(mhda_tests PRIVATE mhda)
 target_include_directories(mhda_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-# The derivation-path conformance table shared with go-mhda.
+# The conformance tables shared with go-mhda.
 target_compile_definitions(mhda_tests PRIVATE
     MHDA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
