@@ -29,6 +29,16 @@ bool network_allows_format(const network_type& nt, const format& fmt);
 // derivation scheme. ROOT is considered valid for every registered network.
 bool network_allows_derivation(const network_type& nt, const derivation_type& dt);
 
+// derivation_algorithm returns the one algorithm dt derives on nt (Sui:
+// slip10 ed25519, bip54 secp256k1, bip74 secp256r1; Aptos and NEAR: slip10
+// ed25519, bip44 secp256k1), or an empty algorithm when nt does not bind dt.
+algorithm derivation_algorithm(const network_type& nt, const derivation_type& dt);
+
+// derivation_allows_format reports whether fmt is a script the purpose of dt
+// defines on nt (Bitcoin: bip44 p2pkh, bip49 p2sh, bip84 p2wpkh or bech32,
+// bip86 p2tr or bech32m); true when nt does not bind dt to formats.
+bool derivation_allows_format(const network_type& nt, const derivation_type& dt, const format& fmt);
+
 // network_is_registered reports whether the network type is in the
 // compatibility matrix at all.
 bool network_is_registered(const network_type& nt);

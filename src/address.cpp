@@ -22,24 +22,6 @@ void append_uint32(std::string& out, std::uint32_t v) {
     for (int i = n - 1; i >= 0; --i) out.push_back(tmp[i]);
 }
 
-// validate_free_form_value guards the case-preserving free-form components
-// (ap/as/wt/wi) against characters that would corrupt the serialised NSS:
-// the ':' component separator would inject foreign components on re-parse,
-// '?' / '#' would truncate the URN at the RFC 8141 r/q/f delimiters, and
-// anything outside printable ASCII (whitespace of any kind, control bytes,
-// Unicode) cannot appear in a conforming NSS at all. Mirrors the Go
-// reference's validateFreeFormValue.
-void validate_free_form_value(std::string_view component, std::string_view v) {
-    for (char c : v) {
-        const auto b = static_cast<unsigned char>(c);
-        if (b < 0x21 || b > 0x7e || c == ':' || c == '?' || c == '#') {
-            throw parse_error(error_code::invalid_value,
-                              std::string{"\""} + std::string{v} + "\" for \"" +
-                                  std::string{component} + "\"");
-        }
-    }
-}
-
 }  // namespace
 
 address::address(chain c,
@@ -74,25 +56,47 @@ format address::resolved_format() const {
 void address::set_derivation_type(std::string_view dt) {
     auto trimmed = detail::trim(dt);
     auto lowered = detail::to_lower(trimmed);
+    derivation_type next = derivation_type::root;
+    if (!lowered.empty()) {
+        next = derivation_type{lowered};
+        if (!next.is_valid()) {
+            throw parse_error(error_code::invalid_derivation_type,
+                              detail::quote(lowered));
+        }
+    }
     if (!path_) path_.emplace();
-    if (lowered.empty()) {
-        path_->set_type(derivation_type::root);
-        return;
+    path_->set_type(next);  // a new type drops the old path
+}
+
+void address::set_derivation(std::string_view dt, std::string_view dp) {
+    address scratch;
+    scratch.set_derivation_type(dt);
+    scratch.set_derivation_path(dp);
+    path_ = std::move(scratch.path_);
+}
+
+void address::check_path_set() const {
+    if (path_ && !path_->type().empty() && path_->type() != derivation_type::root &&
+        path_->levels().empty()) {
+        throw parse_error(error_code::invalid_derivation_path,
+                          std::string{"derivation type \""} + path_->type().str() +
+                              "\" is set without a path");
     }
-    derivation_type next{lowered};
-    if (!next.is_valid()) {
-        throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + lowered + "\"");
-    }
-    path_->set_type(next);
 }
 
 void address::set_derivation_path(std::string_view dp) {
     if (!path_) path_.emplace();
-    if (path_->type() == derivation_type::root || path_->type().empty()) {
-        return;  // root has no path; silent no-op matches Go semantics
-    }
     auto trimmed = detail::trim(dp);
+    if (path_->type() == derivation_type::root || path_->type().empty()) {
+        // A root address has no path. Dropping one instead would let a URN
+        // with a dp but no dt (which parses as root) name the root key rather
+        // than the path it spells out. Mirrors go-mhda.
+        if (!trimmed.empty()) {
+            throw parse_error(error_code::invalid_derivation_path,
+                              std::string{"root derivation must have empty path, got "} + detail::quote(trimmed));
+        }
+        return;
+    }
     auto lowered = detail::to_lower(trimmed);
     path_->parse_path(lowered);
 }
@@ -106,7 +110,7 @@ void address::set_coin_type(std::string_view ct) {
     std::uint32_t v = 0;
     if (!detail::parse_uint32(trimmed, v)) {
         throw parse_error(error_code::invalid_coin_type,
-                          std::string{"\""} + std::string{trimmed} + "\"");
+                          detail::quote(trimmed));
     }
     chain_.set_coin(v);
 }
@@ -121,7 +125,7 @@ void address::set_address_algorithm(std::string_view aa) {
     algorithm next{lowered};
     if (!next.is_valid()) {
         throw parse_error(error_code::invalid_algorithm,
-                          std::string{"\""} + lowered + "\"");
+                          detail::quote(lowered));
     }
     algorithm_ = std::move(next);
 }
@@ -136,32 +140,32 @@ void address::set_address_format(std::string_view af) {
     format next{lowered};
     if (!next.is_valid()) {
         throw parse_error(error_code::invalid_format,
-                          std::string{"\""} + lowered + "\"");
+                          detail::quote(lowered));
     }
     format_ = std::move(next);
 }
 
 void address::set_address_prefix(std::string_view ap) {
     auto trimmed = detail::trim(ap);
-    validate_free_form_value(detail::comp_address_prefix, trimmed);
+    detail::validate_free_form_value(detail::comp_address_prefix, trimmed);
     prefix_ = std::string{trimmed};
 }
 
 void address::set_address_suffix(std::string_view as) {
     auto trimmed = detail::trim(as);
-    validate_free_form_value(detail::comp_address_suffix, trimmed);
+    detail::validate_free_form_value(detail::comp_address_suffix, trimmed);
     suffix_ = std::string{trimmed};
 }
 
 void address::set_wallet_type(std::string_view wt) {
     auto trimmed = detail::trim(wt);
-    validate_free_form_value(detail::comp_wallet_type, trimmed);
+    detail::validate_free_form_value(detail::comp_wallet_type, trimmed);
     wallet_type_ = std::string{trimmed};
 }
 
 void address::set_wallet_id(std::string_view wi) {
     auto trimmed = detail::trim(wi);
-    validate_free_form_value(detail::comp_wallet_id, trimmed);
+    detail::validate_free_form_value(detail::comp_wallet_id, trimmed);
     wallet_id_ = std::string{trimmed};
 }
 
@@ -188,11 +192,16 @@ std::string address::nss() const {
     }
 
     // Derivation domain — present when not ROOT and a non-empty type is set.
+    // A type set without a path yet is emitted without dp, so the URN fails
+    // to parse rather than name another key.
     if (path_ && !path_->type().empty() && path_->type() != derivation_type::root) {
         out += ":dt:";
         out += path_->type().str();
-        out += ":dp:";
-        out += path_->str();
+        const std::string p = path_->str();
+        if (!p.empty()) {
+            out += ":dp:";
+            out += p;
+        }
     }
 
     // Address-format metadata — emitted only when explicitly set.
@@ -235,6 +244,7 @@ std::string address::marshal_text() const {
     if (chain_.network().empty()) {
         throw parse_error(error_code::uninitialized_address);
     }
+    check_path_set();
     return str();
 }
 
@@ -247,15 +257,16 @@ void address::validate() const {
     if (nt.empty()) {
         throw parse_error(error_code::uninitialized_address);
     }
+    check_path_set();
     if (!detail::network_is_registered(nt)) {
         throw parse_error(error_code::incompatible,
-                          std::string{"unknown network type \""} + nt.str() + "\"");
+                          std::string{"unknown network type "} + detail::quote(nt.str()));
     }
 
     auto algo = resolved_algorithm();
     if (algo.empty()) {
         throw parse_error(error_code::incompatible,
-                          std::string{"no algorithm resolved for network \""} + nt.str() + "\"");
+                          std::string{"no algorithm resolved for network "} + detail::quote(nt.str()));
     }
     if (!detail::network_allows_algorithm(nt, algo)) {
         throw parse_error(error_code::incompatible,
@@ -271,12 +282,44 @@ void address::validate() const {
     }
 
     // ROOT (no derivation path) is always permitted.
-    if (path_ && !path_->type().empty() && path_->type() != derivation_type::root) {
-        if (!detail::network_allows_derivation(nt, path_->type())) {
-            throw parse_error(error_code::incompatible,
-                              std::string{"derivation \""} + path_->type().str() +
-                              "\" not allowed for network \"" + nt.str() + "\"");
+    if (!path_ || path_->type().empty() || path_->type() == derivation_type::root) return;
+    const derivation_type& dt = path_->type();
+    if (!detail::network_allows_derivation(nt, dt)) {
+        throw parse_error(error_code::incompatible,
+                          std::string{"derivation \""} + dt.str() +
+                          "\" not allowed for network \"" + nt.str() + "\"");
+    }
+    const algorithm want = detail::derivation_algorithm(nt, dt);
+    if (!want.empty() && want != algo) {
+        throw parse_error(error_code::incompatible,
+                          std::string{"derivation \""} + dt.str() + "\" derives \"" + want.str() +
+                          "\" keys on network \"" + nt.str() + "\", not \"" + algo.str() + "\"");
+    }
+    if (!fmt.empty() && !detail::derivation_allows_format(nt, dt, fmt)) {
+        throw parse_error(error_code::incompatible,
+                          std::string{"format \""} + fmt.str() +
+                          "\" does not match the purpose of derivation \"" + dt.str() +
+                          "\" on network \"" + nt.str() + "\"");
+    }
+    // SLIP-10 derives ed25519 keys through hardened levels only; CIP-1852
+    // (BIP32-Ed25519) is the one ed25519 scheme with soft derivation.
+    if (algo == algorithm::ed25519 && dt != derivation_type::cip1852) {
+        const auto& lvls = path_->levels();
+        for (std::size_t i = 0; i < lvls.size(); ++i) {
+            if (!lvls[i].is_hardened) {
+                throw parse_error(error_code::incompatible,
+                                  "ed25519 derives hardened levels only, level " +
+                                      std::to_string(i) + " of \"" + path_->str() +
+                                      "\" is not hardened");
+            }
         }
+    }
+    // On Cosmos, bip44 with coin 118' is the cip11 path under another name;
+    // strict mode keeps the one spelling.
+    if (nt == network_type::cosmos && dt == derivation_type::bip44 &&
+        path_->coin() == coins::atom) {
+        throw parse_error(error_code::incompatible,
+                          "\"bip44\" with coin 118' is the cip11 path, use dt:cip11");
     }
 }
 

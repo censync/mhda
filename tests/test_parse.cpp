@@ -169,9 +169,13 @@ TEST_CASE("set prefix/suffix reset") {
     EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1"});
 }
 
-TEST_CASE("set_derivation_path is no-op for ROOT") {
+TEST_CASE("set_derivation_path refuses a path under ROOT") {
+    // Silently ignoring it would make the address name the root key instead
+    // of the path given.
     address a{chain{network_type::ethereum_vm, "1"}, std::nullopt};
     a.set_derivation_type("");
-    a.set_derivation_path("m/44'/0'/0'/0/0");  // silently ignored
+    EXPECT_THROW_CODE(a.set_derivation_path("m/44'/0'/0'/0/0"),
+                      error_code::invalid_derivation_path);
+    EXPECT_NO_THROW(a.set_derivation_path(""));
     EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1"});
 }

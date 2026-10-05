@@ -120,3 +120,12 @@ TEST_CASE("chain equality is the (nt, ci) identity") {
     chain other{network_type::ethereum_vm, "10"};
     EXPECT_TRUE(a != other);
 }
+
+// '?' and '#' open the RFC 8141 r/q/f components; a chain key or NSS carrying
+// one in a value would be truncated once embedded in a URN.
+TEST_CASE("chain parsers refuse r/q/f delimiters") {
+    for (const char* s : {"nt:evm:ci:1#a", "nt:evm:ci:1?=q", "nt:evm:ci:a?b"}) {
+        EXPECT_THROW_CODE(chain::from_key(s), error_code::invalid_nss);
+        EXPECT_THROW_CODE(chain::from_nss(s), error_code::invalid_nss);
+    }
+}

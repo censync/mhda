@@ -33,16 +33,19 @@ urn:mhda:nt:evm:ci:1:dt:bip44:dp:m/44'/60'/0'/0/0:wt:web3:wi:5f2a8c31
 
 ## Status
 
-- Version: **1.1.0**
+- Version: **1.2.0**
 - Standard: **C++17**, no external runtime dependencies
-- Tests: **139** unit + fuzz-equivalent stress cases (≈11 000 randomised
+- Tests: **160** unit + fuzz-equivalent stress cases (≈11 000 randomised
   iterations), passing under `-fsanitize=address,undefined,leak`
 - Compilers verified: GCC 11.4 (Ubuntu 22.04), Clang 14 (when libstdc++ is
-  available); the CI matrix runs Linux + macOS, Release + Debug
+  available); the CI matrix runs Linux + macOS, Release + Debug, plus
+  ASan/UBSan, `-Werror` (the warning set below), shared-library and
+  packaging (`find_package` / `add_subdirectory`) jobs
 - Warning policy: clean under `-Wall -Wextra -Wpedantic -Wshadow -Wconversion
   -Wsign-conversion -Werror`
-- Binary stability is not yet guaranteed across minor versions; 1.1.0
-  changes the URN grammar (see [CHANGELOG.md](./CHANGELOG.md))
+- Binary stability is not yet guaranteed across minor versions; 1.2.0
+  tightens the URN grammar and strict validation and changes the ABI (see
+  [CHANGELOG.md](./CHANGELOG.md))
 
 ## Building
 
@@ -55,8 +58,11 @@ ctest --test-dir build --output-on-failure
 ```
 
 The library target is `mhda::mhda`; public headers live under `include/mhda/`.
-Both options below are ON by default and can be disabled with
-`-DMHDA_BUILD_TESTS=OFF` / `-DMHDA_BUILD_EXAMPLES=OFF`.
+Built on its own, the project builds its tests and examples and generates
+install rules; embedded with `add_subdirectory` / FetchContent it builds only
+the library and leaves the parent's build type alone. `-DMHDA_BUILD_TESTS`,
+`-DMHDA_BUILD_EXAMPLES` and `-DMHDA_INSTALL` override either default, and
+`-DBUILD_SHARED_LIBS=ON` builds a shared library.
 
 ### Installing
 
@@ -64,8 +70,9 @@ Both options below are ON by default and can be disabled with
 cmake --install build --prefix /usr/local
 ```
 
-This installs `libmhda.a`, the `include/mhda/` headers and a
-`mhda::mhda` CMake export so downstream projects can:
+This installs the library, the `mhda/` headers under
+`CMAKE_INSTALL_INCLUDEDIR` and a `mhda::mhda` CMake export, which carries the
+C++17 requirement, so downstream projects can:
 
 ```cmake
 find_package(mhda REQUIRED)
@@ -78,11 +85,15 @@ target_link_libraries(my_app PRIVATE mhda::mhda)
 include(FetchContent)
 FetchContent_Declare(mhda
     GIT_REPOSITORY https://github.com/censync/mhda.git
-    GIT_TAG        v1.1.0
+    GIT_TAG        v1.2.0
 )
 FetchContent_MakeAvailable(mhda)
 target_link_libraries(my_app PRIVATE mhda::mhda)
 ```
+
+Embedded this way, mhda adds only its library target: tests, examples and
+install rules stay off unless enabled, and it does not choose a build type
+for the parent.
 
 ## Quick start
 
@@ -159,6 +170,7 @@ A runnable version is in [`examples/basic.cpp`](./examples/basic.cpp).
 | `mhda.ParseNSS`                   | `mhda::parse_nss`                            |
 | `mhda.ChainFromKey` / `FromNSS`   | `mhda::chain::from_key` / `from_nss`         |
 | `mhda.NewChain(nt, ci)`           | `mhda::chain{nt, ci}`                        |
+| `Chain.SetNetworkType` / `SetChainId` | `chain::set_network` / `set_chain_id` |
 | `Chain.SetCoinType` / `ClearCoinType` | `chain::set_coin` / `chain::clear_coin` |
 | `Chain.CoinType` + `HasCoinType`  | `chain::coin` (`std::optional<coin_type>`)   |
 | `mhda.ParseDerivationPath`        | `mhda::derivation_path::parse`               |
@@ -166,6 +178,7 @@ A runnable version is in [`examples/basic.cpp`](./examples/basic.cpp).
 | `Address.String()` / `NSS()`      | `address::str` / `address::nss`              |
 | `Address.WalletType` / `WalletId` | `address::wallet_type` / `wallet_id`         |
 | `Address.SetWalletType` / `SetWalletId` | `address::set_wallet_type` / `set_wallet_id` |
+| `Address.SetDerivation(dt, dp)`   | `address::set_derivation(dt, dp)`            |
 | `Address.MarshalText`             | `address::marshal_text`                      |
 | `Address.UnmarshalText`           | `address::unmarshal_text`                    |
 | `Address.Hash` / `Hash256`        | `address::hash` / `hash256`                  |
@@ -208,13 +221,16 @@ Mirrors the [SPEC §8](./SPEC.md#8-concurrency) contract.
   index, algorithm/format/derivation registries) are populated lazily inside
   `static const` function-locals (Magic Statics — guaranteed thread-safe by
   C++11 §6.7.4) and are read-only thereafter; concurrent reads are safe and
-  introduce no locking.
+  introduce no locking. The tables are allocated once and never destroyed,
+  and the named constants (`network_type::bitcoin`, `derivation_type::root`,
+  ...) are inline variables defined in the public headers, so the library
+  also works from a consumer's global constructors and destructors.
 - No `std::mutex`, `std::atomic`, recursive locks or condition variables are
   used anywhere in the library — deadlock by construction is impossible.
 
 ## Testing & validation
 
-- 139 unit + fuzz-equivalent test cases.
+- 160 unit + fuzz-equivalent test cases.
 - Fuzz harness runs ≈11 000 randomised mutations of the historical Go-fuzz
   seed corpus per execution (URN, NSS and derivation-path entry points).
   Contracts verified: no exception other than `parse_error`/`std::invalid_argument`,

@@ -11,13 +11,17 @@
 namespace mhda {
 
 using account_index = std::uint32_t;
-using charge_type   = std::uint8_t;
+// charge_type is the level after the account: the change level of BIP-32 and
+// the BIP-44 family (0 external, 1 internal), the CIP-11 charge and the
+// CIP-1852 role. It is as wide as a level index: the CIP-11 charge and the
+// CIP-1852 role take any index.
+using charge_type   = std::uint32_t;
 
 constexpr charge_type charge_external = 0;
 constexpr charge_type charge_internal = 1;
 
-// address_index represents a single level of a derivation path (an unsigned
-// 32-bit index plus a hardening flag).
+// address_index represents a single level of a derivation path: the index,
+// below 2^31 in every parsed path, plus the separate hardening flag.
 struct address_index {
     std::uint32_t index = 0;
     bool          is_hardened = false;
@@ -47,6 +51,11 @@ public:
     // Construct a path for a fixed-shape BIP-family scheme. SLIP-10 cannot be
     // reconstructed from the five shortcut fields; passing it here throws
     // std::invalid_argument (mirroring the panic in the Go implementation).
+    // An unregistered derivation type throws
+    // parse_error(invalid_derivation_type): the type is written verbatim
+    // into the URN. The result is the path parse() gives back for its own
+    // str(); values that do not form a valid path (charge 7 in a BIP-44
+    // path, an index of 2^31) throw parse_error(invalid_derivation_path).
     derivation_path(derivation_type dt,
                     coin_type coin,
                     account_index account,
@@ -55,7 +64,14 @@ public:
 
     // Construct a path from an explicit sequence of levels. Required for
     // SLIP-10 and a convenient alternative for any scheme. For fixed-shape
-    // schemes the shortcut fields are populated from the levels.
+    // schemes the shortcut fields are populated from the levels. An
+    // unregistered derivation type throws parse_error(invalid_derivation_type).
+    // The result is the path parse() gives back for its own str(), and it
+    // must have exactly the given levels: levels that do not form a path of
+    // the type (purpose 49' for bip44, an unhardened account, too few levels,
+    // none for slip10, an index of 2^31) throw
+    // parse_error(invalid_derivation_path), so levels() and str() never
+    // disagree.
     static derivation_path from_levels(derivation_type dt,
                                        std::vector<address_index> levels);
 
@@ -79,14 +95,21 @@ public:
     std::string str() const;
 
     // parse_path replaces the contents of this path with the result of parsing
-    // the given string under the path's current derivation type. Throws
-    // parse_error on failure. The derivation type must already be set (via
-    // construction or set_type); for ROOT, path must be empty.
+    // the given string under the path's current derivation type. The whole
+    // path is replaced, so nothing of a previous path survives; on failure it
+    // throws parse_error and leaves the path unchanged. The derivation type
+    // must already be set (via construction or set_type); for ROOT, path must
+    // be empty.
     void parse_path(std::string_view path);
 
+    // set_type throws parse_error(invalid_derivation_type) for an
+    // unregistered type. A type other than the current one clears the path,
+    // which belongs to the old scheme: str() is empty until parse_path sets a
+    // new one. Setting the current type again keeps the path.
     void set_type(const derivation_type& dt);
 
 private:
+    void parse_fresh(std::string_view path);
     void rebuild_levels();
     void populate_shortcuts_from_levels();
     bool fixed_prefix(std::uint32_t& purpose, std::uint32_t& coin) const;

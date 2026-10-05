@@ -71,9 +71,10 @@ TEST_CASE("derivation compatibility leg of strict mode") {
 TEST_CASE("Bitcoin all script formats") {
     const std::vector<std::string> urns = {
         "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip44:dp:m/44'/0'/0'/0/0:af:p2pkh",
-        "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip44:dp:m/44'/0'/0'/0/0:af:p2sh",
+        "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip49:dp:m/49'/0'/0'/0/0:af:p2sh",
         "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip84:dp:m/84'/0'/0'/0/0:af:p2wpkh",
-        "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip84:dp:m/84'/0'/0'/0/0:af:p2wsh",
+        // P2WSH has no single-key purpose (multisig is BIP-48): plain bip32.
+        "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip32:dp:m/0'/0/0:af:p2wsh",
         "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip84:dp:m/84'/0'/0'/0/0:af:bech32",
         "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip86:dp:m/86'/0'/0'/0/0:af:p2tr",
         "urn:mhda:nt:bitcoin:ci:bitcoin:ct:0:dt:bip86:dp:m/86'/0'/0'/0/0:af:bech32m",
@@ -124,7 +125,7 @@ TEST_CASE("README examples round-trip strictly") {
         "urn:mhda:nt:solana:ci:mainnet:dt:slip10:dp:m/44'/501'/0'/0'",
         // XRP Ledger
         "urn:mhda:nt:xrpl:ci:mainnet:dt:bip44:dp:m/44'/144'/0'/0/0",
-        "urn:mhda:nt:xrpl:ci:mainnet:ct:144:dt:bip44:dp:m/44'/144'/0'/0/0:aa:ed25519",
+        "urn:mhda:nt:xrpl:ci:mainnet:ct:144:aa:ed25519",
         // Stellar
         "urn:mhda:nt:stellar:ci:mainnet:dt:slip10:dp:m/44'/148'/0'",
         // NEAR

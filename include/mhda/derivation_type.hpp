@@ -38,6 +38,23 @@ private:
     std::string value_;
 };
 
+// The named constants are inline variables defined in this header: every
+// translation unit that names one includes their definitions, so they are
+// initialised before any namespace-scope object defined after the include,
+// and a consumer's global constructors and destructors can use them.
+inline const derivation_type derivation_type::root    {"root"};
+inline const derivation_type derivation_type::bip32   {"bip32"};
+inline const derivation_type derivation_type::bip44   {"bip44"};
+inline const derivation_type derivation_type::bip49   {"bip49"};
+inline const derivation_type derivation_type::bip54   {"bip54"};
+inline const derivation_type derivation_type::bip74   {"bip74"};
+inline const derivation_type derivation_type::bip84   {"bip84"};
+inline const derivation_type derivation_type::bip86   {"bip86"};
+inline const derivation_type derivation_type::slip10  {"slip10"};
+inline const derivation_type derivation_type::cip1852 {"cip1852"};
+inline const derivation_type derivation_type::cip11   {"cip11"};
+inline const derivation_type derivation_type::zip32   {"zip32"};
+
 // derivation_type_from_string parses a string into a derivation_type. Lookup
 // is case-insensitive; surrounding whitespace is stripped. Throws parse_error
 // with code error_code::invalid_derivation_type for unknown values.

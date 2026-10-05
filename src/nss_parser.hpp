@@ -32,14 +32,22 @@ constexpr std::string_view comp_wallet_id         = "wi";
 
 bool is_known_component(std::string_view key) noexcept;
 
-// parse_nss splits an NSS string into a component map. Unknown keys are
-// silently skipped (forward-compat with future URN extensions); duplicate
-// keys, empty values, and values containing anything outside printable ASCII
-// (0x21–0x7E: control bytes, whitespace of any kind, non-ASCII bytes) throw
-// parse_error(invalid_nss). Values are ASCII-trimmed before the checks.
+// parse_nss splits an NSS string into a component map; an empty NSS has no
+// components. The NSS is a sequence of `key:value` pairs joined by `:`
+// separators. A pair with an unknown key is skipped together with its value
+// (forward-compat with future URN extensions), so a value is never read as a
+// key and a following known key is never read as a value. These throw
+// parse_error(invalid_nss): a key without a value (an odd number of tokens),
+// an empty key or value, a key that differs from a known key only by case
+// (it would drop the component silently), a duplicate known key, and a key
+// or value with anything outside printable ASCII (0x21–0x7E: control bytes,
+// whitespace of any kind, non-ASCII bytes). Nothing is trimmed: the caller
+// removes whitespace around the whole NSS. '?' and '#' anywhere in the NSS throw parse_error(invalid_nss):
+// parse_urn strips the RFC 8141 r/q/f components first, and an NSS parsed on
+// its own must not carry them. Mirrors go-mhda's parseNSS.
 //
-// Form: a sequence of `key:value` pairs joined by `:` separators. Values may
-// not contain ':'; this holds for every component currently defined.
+// Values may not contain ':'; this holds for every component currently
+// defined.
 std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss);
 
 }  // namespace detail

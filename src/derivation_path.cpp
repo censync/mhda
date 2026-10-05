@@ -15,6 +15,10 @@ namespace {
 struct raw_level {
     std::uint32_t index;
     bool          is_hardened;
+    // exact is false when the digits carry a leading zero ("060"). A variable
+    // level accepts that; a fixed level (purpose, fixed coin, 0|1 charge) is
+    // a literal in the Go reference's regexes and must be spelled exactly.
+    bool          exact;
 };
 
 // is_hardening_marker reports whether c is one of the accepted hardening
@@ -24,7 +28,9 @@ bool is_hardening_marker(char c) noexcept {
 }
 
 // parse_segment decomposes a single path segment into (numeric_part, hardened
-// flag). Returns false on empty/non-numeric input or 32-bit overflow.
+// flag). Returns false on empty/non-numeric input or an index of 2^31 or
+// more: the hardened flag is the top bit of a BIP-32 child number, so a larger
+// index would name another level's key. Applies to every level of every type.
 bool parse_segment(std::string_view seg, raw_level& out) noexcept {
     bool hardened = false;
     if (!seg.empty() && is_hardening_marker(seg.back())) {
@@ -32,9 +38,10 @@ bool parse_segment(std::string_view seg, raw_level& out) noexcept {
         seg.remove_suffix(1);
     }
     std::uint32_t value = 0;
-    if (!detail::parse_uint32_dec(seg, value)) return false;
+    if (!detail::parse_uint31_dec(seg, value)) return false;
     out.index = value;
     out.is_hardened = hardened;
+    out.exact = seg.size() == 1 || seg[0] != '0';
     return true;
 }
 
@@ -67,14 +74,18 @@ bool parse_levels(std::string_view path, std::vector<raw_level>& levels) {
     return true;
 }
 
-// expect_purpose verifies that level[0] is the given purpose (hardened).
+// expect_purpose verifies that level[0] is the given purpose (hardened,
+// spelled exactly).
 bool expect_purpose(const std::vector<raw_level>& lvls, std::uint32_t purpose) {
-    return !lvls.empty() && lvls[0].index == purpose && lvls[0].is_hardened;
+    return !lvls.empty() && lvls[0].index == purpose && lvls[0].is_hardened &&
+           lvls[0].exact;
 }
 
-// expect_coin verifies that level[1] is the given coin (hardened).
+// expect_coin verifies that level[1] is the given coin (hardened, spelled
+// exactly).
 bool expect_coin(const std::vector<raw_level>& lvls, std::uint32_t coin) {
-    return lvls.size() >= 2 && lvls[1].index == coin && lvls[1].is_hardened;
+    return lvls.size() >= 2 && lvls[1].index == coin && lvls[1].is_hardened &&
+           lvls[1].exact;
 }
 
 // validate_bip44_family validates the 5-level BIP-44-shaped layout:
@@ -91,6 +102,7 @@ bool validate_bip44_family(const std::vector<raw_level>& lvls,
     if (!lvls[2].is_hardened) return false;            // account hardened
     if (lvls[3].is_hardened)  return false;            // charge soft
     if (lvls[3].index > 1)    return false;            // charge ∈ {0,1}
+    if (!lvls[3].exact)       return false;            // charge spelled 0 or 1
     return true;  // index leaf: arbitrary, hardening optional
 }
 
@@ -100,11 +112,16 @@ bool validate_bip32(const std::vector<raw_level>& lvls) {
     if (!lvls[0].is_hardened) return false;
     if (lvls[1].is_hardened)  return false;
     if (lvls[1].index > 1)    return false;
+    if (!lvls[1].exact)       return false;
     return true;
 }
 
+// max_slip10_depth is the deepest SLIP-10 path: BIP-32 serialises a key's
+// depth in one byte.
+constexpr std::size_t max_slip10_depth = 255;
+
 bool validate_slip10(const std::vector<raw_level>& lvls) {
-    return !lvls.empty();  // any number of levels >= 1
+    return !lvls.empty() && lvls.size() <= max_slip10_depth;
 }
 
 bool validate_cip11(const std::vector<raw_level>& lvls) {
@@ -155,6 +172,21 @@ bool validate_levels_for(const derivation_type& dt, const std::vector<raw_level>
     return false;
 }
 
+// reparsed returns the path the parser gives back for dp.str() and throws
+// parse_error(invalid_derivation_path) unless it has exactly the given
+// levels. A constructed path is then identical to a parsed one: its URN
+// parses, and levels() never disagrees with str() (a BIP-44 path given
+// purpose 49', an unhardened account, too few levels or an index of 2^31 is
+// refused). Mirrors go-mhda.
+derivation_path reparsed(const derivation_path& dp, const std::vector<address_index>& levels) {
+    derivation_path out = derivation_path::parse(dp.type(), dp.str());
+    if (out.levels() != levels) {
+        throw parse_error(error_code::invalid_derivation_path,
+                          "levels do not form a " + dp.type().str() + " path");
+    }
+    return out;
+}
+
 }  // namespace
 
 bool validate_derivation_path(const derivation_type& dt, std::string_view path) {
@@ -175,27 +207,36 @@ derivation_path::derivation_path(derivation_type dt,
       account_(account),
       charge_(charge),
       index_(index) {
+    if (!type_.is_valid()) {
+        throw parse_error(error_code::invalid_derivation_type,
+                          detail::quote(type_.str()));
+    }
     if (type_ == derivation_type::slip10) {
         throw std::invalid_argument(
             "mhda: NewDerivationPath cannot construct SLIP10 paths; use derivation_path::from_levels");
     }
     has_index_ = (type_ != derivation_type::root);
     rebuild_levels();
+    *this = reparsed(*this, levels_);
 }
 
 derivation_path derivation_path::from_levels(derivation_type dt,
                                              std::vector<address_index> levels) {
+    if (!dt.is_valid()) {
+        throw parse_error(error_code::invalid_derivation_type,
+                          detail::quote(dt.str()));
+    }
     derivation_path dp;
     dp.type_ = std::move(dt);
     dp.levels_ = std::move(levels);
     dp.populate_shortcuts_from_levels();
-    return dp;
+    return reparsed(dp, dp.levels_);
 }
 
 derivation_path derivation_path::parse(derivation_type dt, std::string_view path) {
     if (!dt.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + dt.str() + "\"");
+                          detail::quote(dt.str()));
     }
     derivation_path dp;
     dp.type_ = std::move(dt);
@@ -204,19 +245,36 @@ derivation_path derivation_path::parse(derivation_type dt, std::string_view path
 }
 
 void derivation_path::set_type(const derivation_type& dt) {
-    type_ = dt;
+    if (!dt.is_valid()) {
+        throw parse_error(error_code::invalid_derivation_type,
+                          detail::quote(dt.str()));
+    }
+    if (dt == type_) return;
+    // The old levels and shortcuts belong to the old scheme.
+    derivation_path fresh;
+    fresh.type_ = dt;
+    *this = std::move(fresh);
 }
 
 void derivation_path::parse_path(std::string_view path) {
+    // Parse into a fresh path and replace this one only on success: nothing
+    // of the previous path survives, and an error (bad_alloc included)
+    // leaves it unchanged.
+    derivation_path fresh;
+    fresh.type_ = type_;
+    fresh.parse_fresh(path);
+    *this = std::move(fresh);
+}
+
+void derivation_path::parse_fresh(std::string_view path) {
     if (!type_.is_valid()) {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + type_.str() + "\"");
+                          detail::quote(type_.str()));
     }
     if (type_ == derivation_type::root) {
         if (!path.empty()) {
             throw parse_error(error_code::invalid_derivation_path,
-                              std::string{"root derivation must have empty path, got \""}
-                                  + std::string{path} + "\"");
+                              std::string{"root derivation must have empty path, got "} + detail::quote(path));
         }
         levels_.clear();
         has_index_ = false;
@@ -226,7 +284,7 @@ void derivation_path::parse_path(std::string_view path) {
     std::vector<raw_level> lvls;
     if (!parse_levels(path, lvls) || !validate_levels_for(type_, lvls)) {
         throw parse_error(error_code::invalid_derivation_path,
-                          std::string{"\""} + std::string{path} + "\"");
+                          detail::quote(path));
     }
 
     if (type_ == derivation_type::bip32) {
@@ -279,7 +337,7 @@ void derivation_path::parse_path(std::string_view path) {
         }
     } else {
         throw parse_error(error_code::invalid_derivation_type,
-                          std::string{"\""} + type_.str() + "\"");
+                          detail::quote(type_.str()));
     }
 
     rebuild_levels();
@@ -400,7 +458,10 @@ std::string format_levels(const std::vector<address_index>& lvls) {
 }  // namespace
 
 std::string derivation_path::str() const {
-    if (type_ == derivation_type::root) return "";
+    // Root has no levels; a path whose type is set but which has none yet
+    // (none was parsed or constructed) is empty too, rather than the zero
+    // shortcuts of its type.
+    if (levels_.empty()) return "";
     if (type_ == derivation_type::slip10) return format_levels(levels_);
     if (type_ == derivation_type::bip32) {
         std::string out = "m/";

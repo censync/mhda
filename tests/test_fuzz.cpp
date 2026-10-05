@@ -56,7 +56,7 @@ const std::vector<std::string> kSeedURNs = {
 
 const std::vector<std::pair<std::string, std::string>> kSeedPaths = {
     {"bip32",   "m/0'/0/0"},
-    {"bip32",   "m/2147483647'/1/4294967295'"},
+    {"bip32",   "m/2147483647'/1/2147483647'"},  // largest index, 2^31-1
     {"bip44",   "m/44'/60'/0'/0/0"},
     {"bip44",   "m/44'/0'/0'/0/0'"},
     {"bip49",   "m/49'/0'/0'/0/0"},
@@ -81,6 +81,8 @@ const std::vector<std::pair<std::string, std::string>> kSeedPaths = {
     {"slip10",  "m"},
     {"slip10",  "m/"},
     {"slip10",  "m/99999999999999999999"},
+    {"bip32",   "m/2147483648'/1/0"},           // index 2^31
+    {"bip44",   "m/44'/60'/0'/0/4294967295"},   // index 2^32-1
     {"unknown", "m/0/0/0"},
 };
 
@@ -142,6 +144,12 @@ TEST_CASE("FuzzParseURN: no panic, idempotent on success") {
                     std::string{"not idempotent: once="} + once
                         + " twice=" + twice.str() + " input=" + src});
             }
+            // The levels a wallet derives from must survive the round trip.
+            if (addr.path().has_value() != twice.path().has_value() ||
+                (addr.path() && addr.path()->levels() != twice.path()->levels())) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"path changed on re-parse: "} + once + " input=" + src});
+            }
         } catch (const parse_error&) {
             // Rejected inputs are fine; the contract is just "no crash".
         } catch (const std::exception& e) {
@@ -159,14 +167,24 @@ TEST_CASE("FuzzParseURN: no panic, idempotent on success") {
     }
 }
 
-TEST_CASE("FuzzParseNSS: no panic, no half-state on success") {
+TEST_CASE("FuzzParseNSS: no panic, emitted URN re-parses to itself") {
     std::mt19937_64 rng(0xDECADEULL);
     constexpr int kIterations = 4000;
     auto check = [&](const std::string& src) {
         try {
             auto addr = parse_nss(src);
-            (void)addr.str();
-            (void)addr.nss();
+            const std::string once = addr.str();
+            if (once != std::string{kPrefix} + addr.nss()) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"str() is not the prefix plus nss(): "} + once});
+                return;
+            }
+            auto twice = parse_urn(once);
+            if (twice.str() != once) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"not idempotent: once="} + once
+                        + " twice=" + twice.str() + " input=" + src});
+            }
         } catch (const parse_error&) {
             // Rejection is fine.
         } catch (const std::exception& e) {
@@ -184,6 +202,8 @@ TEST_CASE("FuzzParseNSS: no panic, no half-state on success") {
     const std::vector<std::string> bare_seeds = {
         "", "n", "nt", "nt:", "nt:evm", "nt:evm:ci:1:ct:60", "nt:evm:ci:1",
         "nt:evm:ci:1:wt:web3:wi:5f2a8c31",
+        "nt:evm:ci:1?=q:dt:bip44:dp:m/44'/60'/0'/0/0",
+        "nt:evm:ci:1:wi:a#b",
     };
     for (const auto& s : bare_seeds) check(s);
     for (int i = 0; i < kIterations; ++i) {
@@ -208,7 +228,20 @@ TEST_CASE("FuzzDerivationPath: no panic, idempotent on success") {
                         + " twice=" + dp2.str()
                         + " input dt=" + dt_str + " path=" + path});
             }
-            (void)dp.levels();
+            // str() and levels() describe the same path.
+            if (dp2.levels() != dp.levels()) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    std::string{"path changed on re-parse: "} + once
+                        + " input dt=" + dt_str + " path=" + path});
+            }
+            // No accepted level may carry an index of 2^31 or more.
+            for (const auto& lvl : dp.levels()) {
+                if (lvl.index > 0x7FFFFFFFu) {
+                    mhda_failures.push_back({__FILE__, __LINE__,
+                        std::string{"level above 2^31-1: input dt="} + dt_str
+                            + " path=" + path});
+                }
+            }
         } catch (const parse_error&) {
             // Rejection is fine.
         } catch (const std::invalid_argument&) {

@@ -33,8 +33,14 @@ using chain_key = std::string;
 class chain {
 public:
     chain() = default;
-    chain(network_type nt, chain_id ci)
-        : network_(std::move(nt)), chain_id_(std::move(ci)) {}
+
+    // The network type and the chain id are written verbatim into every URN
+    // and chain key, so they are validated like parsed input: the network
+    // type must be registered (error_code::invalid_network_type), and the
+    // chain id, ASCII-trimmed, must be non-empty (missing_chain_id) printable
+    // ASCII without ':', '?' or '#' (invalid_value) - a ':' would inject
+    // components on re-parse. Throws parse_error.
+    chain(network_type nt, chain_id ci);
 
     // from_key parses a chain key produced by chain::key(). A chain key is
     // the canonical identity form "nt:<network>:ci:<chain_id>" and nothing
@@ -49,11 +55,14 @@ public:
 
     // from_nss parses the chain-domain components ("nt", "ci" and the
     // optional "ct" metadata) from the given NSS string. Other components are
-    // tolerated and ignored, so a full address NSS is valid input.
+    // tolerated and ignored, so a full address NSS is valid input. Surrounding
+    // ASCII whitespace is trimmed; whitespace inside the NSS is refused.
     static chain from_nss(std::string_view nss);
 
-    void set_network(network_type nt)  { network_  = std::move(nt); }
-    void set_chain_id(chain_id ci)     { chain_id_ = std::move(ci); }
+    // set_network / set_chain_id validate like the constructor and throw
+    // parse_error; on error the chain is left unchanged.
+    void set_network(network_type nt);
+    void set_chain_id(chain_id ci);
 
     // set_coin attaches the optional SLIP-44 coin-type metadata.
     void set_coin(coin_type ct)        { coin_ = ct; }

@@ -31,6 +31,29 @@ inline std::string_view trim(std::string_view s) noexcept {
     return s.substr(i, j - i);
 }
 
+// nss_byte reports whether c may appear in an NSS key or value (SPEC §1.5):
+// an RFC 3986 pchar or "/" - letters, digits and -._~!$&'()*+,;=@/ - except
+// ':' (the component separator) and '%' (percent-encoding is not supported,
+// and a raw "%41" would be a second spelling of "A"). Whitespace, control
+// bytes, non-ASCII bytes and the printable ASCII outside pchar cannot appear
+// in a conforming URN. Mirrors go-mhda's nssByte.
+inline bool nss_byte(char c) noexcept {
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+        return true;
+    }
+    for (char ok : std::string_view{"-._~!$&'()*+,;=@/"}) {
+        if (c == ok) return true;
+    }
+    return false;
+}
+
+// trim_right removes trailing ASCII whitespace only.
+inline std::string_view trim_right(std::string_view s) noexcept {
+    std::size_t j = s.size();
+    while (j > 0 && is_ascii_space(s[j - 1])) --j;
+    return s.substr(0, j);
+}
+
 // to_lower returns an ASCII-lowercased copy of s.
 inline std::string to_lower(std::string_view s) {
     std::string out;
@@ -92,9 +115,27 @@ inline std::vector<std::string_view> split(std::string_view s, char sep) {
 // the coin-type ("ct") parsing paths.
 bool parse_uint32(std::string_view s, std::uint32_t& out) noexcept;
 
-// parse_uint32_dec parses a strictly decimal uint32_t. Used by per-level
-// derivation-path parsing where Go uses base 10.
-bool parse_uint32_dec(std::string_view s, std::uint32_t& out) noexcept;
+// quote returns s in double quotes for an error message, escaping like Go's
+// %q: '"' and '\\' get a backslash, \n \r \t their escapes, and every other
+// control or non-ASCII byte \xNN. The message stays one line of printable
+// ASCII, so input logged through what() cannot forge or colour log lines.
+std::string quote(std::string_view s);
+
+// validate_free_form_value guards a value written verbatim into the NSS
+// (ap/as/wt/wi and the chain id) with the NSS byte set (see nss_byte): the
+// ':' component separator would inject foreign components on re-parse,
+// '?' / '#' would truncate the URN at the RFC 8141 r/q/f delimiters, and
+// whitespace, control bytes, Unicode and the rest of the printable ASCII
+// outside RFC 3986 pchar cannot appear in a conforming NSS at all. Throws
+// parse_error(invalid_value). Mirrors the Go reference's
+// validateFreeFormValue.
+void validate_free_form_value(std::string_view component, std::string_view v);
+
+// parse_uint31_dec parses a strictly decimal value below 2^31. Used by
+// per-level derivation-path parsing: a BIP-32 child number keeps the hardened
+// flag in its top bit (n' is 2^31+n), so a level index has 31 bits. Mirrors
+// Go's strconv.ParseUint(s, 10, 31).
+bool parse_uint31_dec(std::string_view s, std::uint32_t& out) noexcept;
 
 }  // namespace detail
 }  // namespace mhda

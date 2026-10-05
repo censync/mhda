@@ -171,3 +171,154 @@ TEST_CASE("explicit ct:0 round-trips at URN level") {
     if (addr.get_chain().coin()) EXPECT_EQ(*addr.get_chain().coin(), 0u);
     EXPECT_EQ(addr.str(), in);
 }
+
+// The network type, the chain id and the derivation type are written
+// verbatim into every URN. A value carrying ':' would inject components on
+// re-parse (a root address whose URN reads back as a bip44 path), '?' / '#'
+// would truncate it. Constructors and setters throw parse_error on such a
+// value; a failed setter keeps the old value. Mirrors go-mhda.
+TEST_CASE("programmatic values cannot inject components") {
+    struct row { network_type nt; std::string ci; error_code want; };
+    const std::vector<row> rows = {
+        {network_type::ethereum_vm, "1:dt:bip44:dp:m/44'/60'/0'/0/666", error_code::invalid_value},
+        {network_type::ethereum_vm, "1:wi:attacker", error_code::invalid_value},
+        {network_type::ethereum_vm, "1?=q", error_code::invalid_value},
+        {network_type::ethereum_vm, "1#f", error_code::invalid_value},
+        {network_type::ethereum_vm, "a b", error_code::invalid_value},
+        {network_type::ethereum_vm, "\xc2\xa0" "1", error_code::invalid_value},
+        {network_type::ethereum_vm, "", error_code::missing_chain_id},
+        {network_type::ethereum_vm, " \t", error_code::missing_chain_id},
+        {network_type{"evm:ci:1:dt:bip44"}, "1", error_code::invalid_network_type},
+        {network_type{"polkadot"}, "1", error_code::invalid_network_type},
+        {network_type{"EVM"}, "1", error_code::invalid_network_type},
+        {network_type{}, "1", error_code::invalid_network_type},
+    };
+    for (const auto& r : rows) {
+        EXPECT_THROW_CODE((chain{r.nt, r.ci}), r.want);
+    }
+
+    const chain trimmed{network_type::ethereum_vm, " 0x1 "};
+    EXPECT_EQ(trimmed.id(), std::string{"0x1"});
+
+    chain ch{network_type::ethereum_vm, "1"};
+    EXPECT_THROW_CODE(ch.set_chain_id("1:dt:bip44"), error_code::invalid_value);
+    EXPECT_THROW_CODE(ch.set_chain_id(""), error_code::missing_chain_id);
+    EXPECT_THROW_CODE(ch.set_network(network_type{"evm:x"}), error_code::invalid_network_type);
+    EXPECT_EQ(ch.str(), std::string{"nt:evm:ci:1"});
+    EXPECT_NO_THROW(ch.set_chain_id("56"));
+    EXPECT_NO_THROW(ch.set_network(network_type::bitcoin));
+    EXPECT_EQ(ch.str(), std::string{"nt:bitcoin:ci:56"});
+
+    // The mutable accessor goes through the same setters.
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1");
+    EXPECT_THROW_CODE(a.get_chain().set_chain_id("1:dt:bip44:dp:m/44'/60'/0'/0/666"),
+                      error_code::invalid_value);
+    EXPECT_EQ(a.str(), std::string{"urn:mhda:nt:evm:ci:1"});
+
+    for (const char* dt : {"bip44:wi:x", "bogus", "BIP44", ""}) {
+        EXPECT_THROW_CODE((derivation_path{derivation_type{dt}, 60, 0, 0, address_index{}}),
+                          error_code::invalid_derivation_type);
+        EXPECT_THROW_CODE(derivation_path::from_levels(derivation_type{dt}, {}),
+                          error_code::invalid_derivation_type);
+        derivation_path p;
+        EXPECT_THROW_CODE(p.set_type(derivation_type{dt}), error_code::invalid_derivation_type);
+    }
+}
+
+// SPEC §12: zip32 parses leniently, but no network registers it, so strict
+// parsing refuses it on every network. Mirrors go-mhda.
+TEST_CASE("zip32 has no network") {
+    for (const auto& nt : {network_type::bitcoin, network_type::ethereum_vm,
+                           network_type::avalanche_vm, network_type::tron_vm,
+                           network_type::cosmos, network_type::solana,
+                           network_type::xrp_ledger, network_type::stellar,
+                           network_type::near_protocol, network_type::aptos,
+                           network_type::sui, network_type::cardano,
+                           network_type::algorand, network_type::toncoin}) {
+        const std::string urn = "urn:mhda:nt:" + nt.str() + ":ci:x:dt:zip32:dp:m/32'/133'/0'";
+        EXPECT_NO_THROW(parse_urn(urn));
+        EXPECT_THROW_CODE(parse_urn_strict(urn), error_code::incompatible);
+    }
+}
+
+// Error messages quote the offending input. A caller that logs what() must
+// not receive the input's raw bytes: a newline or an ANSI escape in a
+// client-supplied value would forge or colour log lines. Like Go's %q,
+// what() escapes quotes, backslashes, control and non-ASCII bytes.
+TEST_CASE("error messages escape the input they quote") {
+    const std::vector<std::function<void()>> calls = {
+        [] { address a; a.set_wallet_id("x\n[INFO] ok"); },
+        [] { address a; a.set_address_algorithm("r\x1b[31msa"); },
+        [] { address a{chain{network_type::ethereum_vm, "1"}, std::nullopt};
+             a.set_coin_type("6\x1b""0"); },
+        [] { (void)derivation_type_from_string("bip\n44"); },
+        [] { (void)derivation_path::parse(derivation_type::bip44, "m/44'\n/\"x\\"); },
+        [] { (void)derivation_path::parse(derivation_type{"bip\x7f"}, "m/0"); },
+        [] { (void)chain::from_key("nt:evm:ci:1:\x1b"); },
+        [] { (void)chain{network_type{"ev\nm"}, "1"}; },
+        [] { (void)parse_urn("urn:mhda:nt:evm:ci:1:dt:bip\xc2\xa0" "44:dp:m/0"); },
+    };
+    for (std::size_t i = 0; i < calls.size(); ++i) {
+        std::string what;
+        try {
+            calls[i]();
+        } catch (const parse_error& e) {
+            what = e.what();
+        }
+        if (what.empty()) {
+            mhda_failures.push_back({__FILE__, __LINE__,
+                "call " + std::to_string(i) + " did not throw parse_error"});
+            continue;
+        }
+        for (char c : what) {
+            const auto b = static_cast<unsigned char>(c);
+            if (b < 0x20 || b > 0x7e) {
+                mhda_failures.push_back({__FILE__, __LINE__,
+                    "call " + std::to_string(i) + ": raw byte in what(): " + what});
+                break;
+            }
+        }
+    }
+    try {
+        address a;
+        a.set_wallet_id("x\n\"y\\");
+    } catch (const parse_error& e) {
+        EXPECT_TRUE(std::string{e.what()}.find(R"("x\n\"y\\")") != std::string::npos);
+    }
+}
+
+// ASCII whitespace is trimmed around the whole URN (and around an NSS or
+// chain key given on its own, and before an r/q/f component), never around a
+// key or value inside it. Mirrors go-mhda's TestNoWhitespaceInsideNSS.
+TEST_CASE("no whitespace inside the NSS") {
+    for (const char* urn : {"urn:mhda:nt:evm:ci: 1",
+                            "urn:mhda:nt:evm:ci:1 :dt:bip44:dp:m/44'/60'/0'/0/0",
+                            "urn:mhda:nt: evm:ci:1",
+                            "urn:mhda:nt:evm:ci:1:dt: bip44 :dp:m/44'/60'/0'/0/0",
+                            "urn:mhda: nt:evm:ci:1",
+                            "urn:mhda:nt:evm:ci:1\t:wt:x"}) {
+        EXPECT_THROW_CODE(parse_urn(urn), error_code::invalid_nss);
+    }
+    const std::vector<std::pair<std::string, std::string>> accepted = {
+        {"  urn:mhda:nt:evm:ci:1\t", "urn:mhda:nt:evm:ci:1"},
+        {"urn:mhda:nt:evm:ci:0 #frag", "urn:mhda:nt:evm:ci:0"},
+        {"urn:mhda:nt:evm:ci:1 ?=q", "urn:mhda:nt:evm:ci:1"},
+    };
+    for (const auto& a : accepted) {
+        EXPECT_EQ(parse_urn(a.first).str(), a.second);
+    }
+    EXPECT_NO_THROW(parse_nss(" nt:evm:ci:1 "));
+    EXPECT_NO_THROW(chain::from_nss("\tnt:evm:ci:1 "));
+    EXPECT_THROW_CODE(chain::from_nss("nt:evm:ci: 1"), error_code::invalid_nss);
+}
+
+// Values set in code obey the same RFC 3986 byte set as parsed ones.
+// Mirrors go-mhda's TestFreeFormValuesUseTheNSSCharset.
+TEST_CASE("free-form values use the NSS byte set") {
+    auto a = parse_urn("urn:mhda:nt:evm:ci:1");
+    for (const char* v : {"x|y", "a%41", "<id>", "a\"b", "a{b}", "a\\b"}) {
+        EXPECT_THROW_CODE(a.set_wallet_id(v), error_code::invalid_value);
+        EXPECT_THROW_CODE((chain{network_type::ethereum_vm, v}), error_code::invalid_value);
+    }
+    EXPECT_NO_THROW(a.set_wallet_id("c0a8f2d4-3b6e_x.y~z@w"));
+}

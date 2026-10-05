@@ -39,6 +39,24 @@ private:
     std::string value_;
 };
 
+// The named constants are inline variables defined in this header: every
+// translation unit that names one includes their definitions, so they are
+// initialised before any namespace-scope object defined after the include,
+// and a consumer's global constructors and destructors can use them.
+inline const format format::hex       {"hex"};
+inline const format format::p2pkh     {"p2pkh"};
+inline const format format::p2sh      {"p2sh"};
+inline const format format::p2wpkh    {"p2wpkh"};
+inline const format format::p2wsh     {"p2wsh"};
+inline const format format::p2tr      {"p2tr"};
+inline const format format::bech32    {"bech32"};
+inline const format format::bech32m   {"bech32m"};
+inline const format format::base58    {"base58"};
+inline const format format::base32    {"base32"};
+inline const format format::strkey    {"strkey"};
+inline const format format::base64url {"base64url"};
+inline const format format::ss58      {"ss58"};
+
 // format_from_string parses a string into a format. Lookup is case-insensitive;
 // surrounding whitespace is stripped. Returns an empty optional for unknown
 // values.

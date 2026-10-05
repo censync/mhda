@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "mhda/mhda.hpp"
@@ -59,18 +61,22 @@ TEST_CASE("coin_type rejects leading plus") {
                       error_code::invalid_coin_type);
 }
 
-TEST_CASE("derivation_path leaf accepts uint32 max") {
+TEST_CASE("derivation_path leaf accepts 2^31-1") {
     auto a = parse_urn(
-        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967295");
-    EXPECT_EQ(a.path()->index().index, std::numeric_limits<std::uint32_t>::max());
+        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/2147483647");
+    EXPECT_EQ(a.path()->index().index, std::uint32_t{0x7FFFFFFF});
     EXPECT_EQ(a.str(),
-        std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967295"});
+        std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/2147483647"});
 }
 
-TEST_CASE("derivation_path leaf rejects uint32 max + 1") {
-    EXPECT_THROW_CODE(parse_urn(
-        "urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/4294967296"),
-        error_code::invalid_derivation_path);
+TEST_CASE("derivation_path leaf rejects 2^31 and above") {
+    // A level index is 31 bits: 2^31 and above collide with the hardened bit.
+    for (const char* leaf : {"2147483648", "2147483648'", "4294967295", "4294967295'",
+                             "4294967296"}) {
+        EXPECT_THROW_CODE(parse_urn(
+            std::string{"urn:mhda:nt:evm:ci:1:ct:60:dt:bip44:dp:m/44'/60'/0'/0/"} + leaf),
+            error_code::invalid_derivation_path);
+    }
 }
 
 TEST_CASE("BIP-44 charge field rejects values outside {0,1}") {
@@ -132,6 +138,44 @@ TEST_CASE("derivation_path rejects double hardening marker") {
                       error_code::invalid_derivation_path);
 }
 
+TEST_CASE("derivation_path fixed levels are spelled exactly") {
+    // Mirrors the go-mhda regexes: the purpose, the fixed coin and the 0|1
+    // charge are literals, so a leading zero there is refused.
+    const std::vector<std::pair<derivation_type, std::string>> refused = {
+        {derivation_type::bip44,   "m/044'/60'/0'/0/0"},
+        {derivation_type::bip84,   "m/084'/0'/0'/0/0"},
+        {derivation_type::bip44,   "m/44'/60'/0'/00/0"},
+        {derivation_type::bip44,   "m/44'/60'/0'/01/0"},
+        {derivation_type::bip32,   "m/0'/00/0"},
+        {derivation_type::cip11,   "m/044'/118'/0'/0/0"},
+        {derivation_type::cip11,   "m/44'/0118'/0'/0/0"},
+        {derivation_type::cip1852, "m/01852'/1815'/0'/0/0"},
+        {derivation_type::cip1852, "m/1852'/01815'/0'/0/0"},
+        {derivation_type::zip32,   "m/032'/133'/0'"},
+        {derivation_type::zip32,   "m/32'/0133'/0'"},
+    };
+    for (const auto& r : refused) {
+        EXPECT_THROW_CODE(derivation_path::parse(r.first, r.second),
+                          error_code::invalid_derivation_path);
+        EXPECT_FALSE(validate_derivation_path(r.first, r.second));
+    }
+}
+
+TEST_CASE("derivation_path variable levels accept leading zeros") {
+    // The value counts; the canonical form drops the zeros.
+    const std::vector<std::tuple<derivation_type, std::string, std::string>> accepted = {
+        {derivation_type::bip44,   "m/44'/060'/00'/0/007", "m/44'/60'/0'/0/7"},
+        {derivation_type::bip32,   "m/00'/1/007'",         "m/0'/1/7'"},
+        {derivation_type::cip11,   "m/44'/118'/0'/09/0",   "m/44'/118'/0'/9/0"},
+        {derivation_type::cip1852, "m/1852'/1815'/0'/02/0", "m/1852'/1815'/0'/2/0"},
+        {derivation_type::zip32,   "m/32'/133'/00'/00'",   "m/32'/133'/0'/0'"},
+        {derivation_type::slip10,  "m/044'/0501'/00'",     "m/44'/501'/0'"},
+    };
+    for (const auto& r : accepted) {
+        EXPECT_EQ(derivation_path::parse(std::get<0>(r), std::get<1>(r)).str(), std::get<2>(r));
+    }
+}
+
 TEST_CASE("derivation_path accepts SLIP-10 with single level") {
     auto dp = derivation_path::parse(derivation_type::slip10, "m/0");
     EXPECT_EQ(dp.str(), std::string{"m/0"});
@@ -142,12 +186,17 @@ TEST_CASE("derivation_path accepts SLIP-10 with single level") {
 // Huge inputs
 // ---------------------------------------------------------------------------
 
-TEST_CASE("very long SLIP-10 path (256 levels) round-trips") {
+TEST_CASE("SLIP-10 path of 255 levels round-trips, 256 is refused") {
+    // BIP-32 serialises a key's depth in one byte.
     std::string path = "m";
-    for (int i = 0; i < 256; ++i) path += "/0'";
+    for (int i = 0; i < 255; ++i) path += "/0'";
     auto dp = derivation_path::parse(derivation_type::slip10, path);
-    EXPECT_EQ(dp.levels().size(), 256u);
+    EXPECT_EQ(dp.levels().size(), 255u);
     EXPECT_EQ(dp.str(), path);
+    path += "/0'";
+    EXPECT_THROW_CODE(derivation_path::parse(derivation_type::slip10, path),
+                      error_code::invalid_derivation_path);
+    EXPECT_FALSE(validate_derivation_path(derivation_type::slip10, path));
 }
 
 TEST_CASE("very long chain_id (4 KiB) round-trips") {
@@ -310,19 +359,19 @@ TEST_CASE("self-assignment via reference leaves address unchanged") {
     EXPECT_EQ(a.str(), before);
 }
 
-TEST_CASE("from_levels with zero levels for SLIP10 produces empty path") {
-    auto dp = derivation_path::from_levels(derivation_type::slip10, {});
-    EXPECT_EQ(dp.str(), std::string{"m"});
-    EXPECT_FALSE(dp.has_index());
+TEST_CASE("from_levels with zero levels for SLIP10 is refused") {
+    // "m" alone is no SLIP-10 path: the parser refuses it, so does from_levels.
+    EXPECT_THROW_CODE(derivation_path::from_levels(derivation_type::slip10, {}),
+                      error_code::invalid_derivation_path);
 }
 
-TEST_CASE("from_levels under-populated for BIP44 leaves shortcuts at zero") {
-    auto dp = derivation_path::from_levels(derivation_type::bip44, {
-        {44, true}, {60, true},  // only 2 levels, well below the 5 expected
-    });
-    EXPECT_EQ(dp.coin(), 0u);
-    EXPECT_EQ(dp.account(), 0u);
-    EXPECT_FALSE(dp.has_index());
+TEST_CASE("from_levels under-populated for BIP44 is refused") {
+    // Two levels are no BIP-44 path; str() would print the zero template
+    // m/44'/0'/0'/0/0 while levels() held 44'/60'.
+    EXPECT_THROW_CODE(derivation_path::from_levels(derivation_type::bip44, {
+                          {44, true}, {60, true},
+                      }),
+                      error_code::invalid_derivation_path);
 }
 
 TEST_CASE("hash and nss_hash do not crash on uninitialised address") {

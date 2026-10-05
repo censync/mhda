@@ -11,14 +11,16 @@ namespace detail {
 namespace {
 
 const std::unordered_set<std::string_view>& known_components() {
-    static const std::unordered_set<std::string_view> set = {
+    // Allocated once and never destroyed: a consumer's global destructor may
+    // still parse after static destruction has begun.
+    static const auto* set = new std::unordered_set<std::string_view>{
         comp_network_type, comp_chain_id, comp_coin_type,
         comp_derivation_type, comp_derivation_path,
         comp_address_algorithm, comp_address_format,
         comp_address_prefix, comp_address_suffix,
         comp_wallet_type, comp_wallet_id,
     };
-    return set;
+    return *set;
 }
 
 }  // namespace
@@ -29,46 +31,60 @@ bool is_known_component(std::string_view key) noexcept {
 
 std::unordered_map<std::string, std::string> parse_nss_map(std::string_view nss) {
     std::unordered_map<std::string, std::string> out;
+    if (nss.empty()) return out;
+    // '?' and '#' open the RFC 8141 r/q/f components. parse_urn strips them
+    // before the NSS reaches this parser; an NSS that still carries one
+    // (parse_nss, chain::from_nss, chain::from_key) is rejected, since the
+    // URN emitted from it would be truncated at that byte on the next parse.
+    if (const auto i = nss.find_first_of("?#"); i != std::string_view::npos) {
+        throw parse_error(error_code::invalid_nss,
+                          std::string{"'"} + nss[i] + "' inside the NSS");
+    }
     auto parts = split(nss, ':');
-    for (std::size_t i = 0; i < parts.size();) {
-        auto key = parts[i];
-        if (!is_known_component(key)) {
-            // Unknown token (could be an unrelated word, a future component
-            // name, or part of a value we mis-identified). Skip and move on.
-            ++i;
-            continue;
+    if (parts.size() % 2 != 0) {
+        throw parse_error(error_code::invalid_nss,
+                          std::string{"missing value for "} + quote(parts.back()));
+    }
+    for (std::size_t i = 0; i < parts.size(); i += 2) {
+        const auto key = parts[i];
+        if (key.empty()) {
+            throw parse_error(error_code::invalid_nss, "empty component key");
         }
-        if (i + 1 >= parts.size()) {
-            throw parse_error(error_code::invalid_nss,
-                              std::string{"missing value for \""} + std::string{key} + "\"");
+        for (char c : key) {
+            if (!nss_byte(c)) {
+                throw parse_error(error_code::invalid_nss,
+                                  std::string{"byte not allowed in component key "} + quote(key));
+            }
         }
-        // RFC 8141 NSS does not permit unescaped whitespace; trim ASCII
-        // whitespace so any trailing space (e.g. from "ci:0 #frag" where
-        // strip_rqf leaves the space) does not leak into the canonical form
-        // and break round-trip.
-        auto value = trim(parts[i + 1]);
+        // Nothing is trimmed: the caller removes whitespace around the whole
+        // NSS, and whitespace around a key or value is malformed input.
+        const auto value = parts[i + 1];
         if (value.empty()) {
             throw parse_error(error_code::invalid_nss,
-                              std::string{"empty value for \""} + std::string{key} + "\"");
+                              std::string{"empty value for "} + quote(key));
         }
         // Everything that survives the trim must be printable ASCII (SPEC
         // §1.5) — interior whitespace, control bytes and Unicode spaces are
         // all malformed input, never silently normalised.
         for (char c : value) {
-            const auto b = static_cast<unsigned char>(c);
-            if (b < 0x21 || b > 0x7e) {
+            if (!nss_byte(c)) {
                 throw parse_error(error_code::invalid_nss,
-                                  std::string{"non-ASCII or control byte in value for \""} +
-                                      std::string{key} + "\"");
+                                  std::string{"byte not allowed in value for "} + quote(key));
             }
+        }
+        if (!is_known_component(key)) {
+            if (is_known_component(to_lower(key))) {
+                throw parse_error(error_code::invalid_nss,
+                                  "component key " + quote(key) + " must be lowercase");
+            }
+            continue;  // unknown component, skipped with its value
         }
         std::string key_str{key};
         if (out.count(key_str)) {
             throw parse_error(error_code::invalid_nss,
-                              std::string{"duplicate component \""} + key_str + "\"");
+                              std::string{"duplicate component "} + quote(key_str));
         }
         out.emplace(std::move(key_str), std::string{value});
-        i += 2;
     }
     return out;
 }
